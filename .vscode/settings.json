@@ -1,5 +1,8 @@
 {
     "chat.tools.terminal.autoApprove": {
-        "bun": true
+        "bun": true,
+        "anchor": true,
+        "cargo test": true,
+        "bunx": true
     }
 }

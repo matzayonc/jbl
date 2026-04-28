@@ -9,7 +9,7 @@ pub use constants::*;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("FGauH3y9Qh5k98WxExrz8CVcqUA6VQuepLPRNxfuB3JH");
+declare_id!("AdeLu1KwKjGFUgqdcchEXEB89jaCAAmVV3nWk89j4bXo");
 
 #[program]
 pub mod jbl {
@@ -17,5 +17,9 @@ pub mod jbl {
 
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         initialize::handler(ctx)
+    }
+
+    pub fn create_lending_account(ctx: Context<CreateLendingAccount>) -> Result<()> {
+        create_lending_account::handler(ctx)
     }
 }

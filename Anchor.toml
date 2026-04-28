@@ -6,13 +6,16 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-jbl = "FGauH3y9Qh5k98WxExrz8CVcqUA6VQuepLPRNxfuB3JH"
+jbl = "AdeLu1KwKjGFUgqdcchEXEB89jaCAAmVV3nWk89j4bXo"
 
 [provider]
 cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "cargo test"
+test = "bun run test"
+
+# NOTE: Use 'anchor test' to run tests with automatic validator management
+# This will start a local validator, deploy the program, run tests, and cleanup automatically
 
 [hooks]
