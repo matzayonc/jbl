@@ -1,9 +1,7 @@
-import { Buffer } from 'buffer'
 import { useMemo, useState } from 'react'
 import { useWalletConnection } from '@solana/react-hooks'
-import { PublicKey, SystemProgram } from '@solana/web3.js'
-import { program as readOnlyProgram } from '../lib/program'
-import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import { PublicKey } from '@solana/web3.js'
+import { getAssociatedTokenAddressSync } from '@solana/spl-token'
 import * as anchor from '@anchor-lang/core'
 import {
   Card,
@@ -56,30 +54,13 @@ export function LendingInfoCard() {
       const amount = new anchor.BN(parseFloat(supplyAmount) * 1_000_000)
       const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
 
-      const programId = readOnlyProgram.programId
-
-      const [lendingVault] = PublicKey.findProgramAddressSync(
-        [Buffer.from('lending_vault'), userAccount.publicKey.toBuffer()],
-        programId
-      )
-
-      const [depositReceipt] = PublicKey.findProgramAddressSync(
-        [Buffer.from('deposit_receipt'), userAccount.publicKey.toBuffer(), userPublicKey.toBuffer()],
-        programId
-      )
-
       const tx = await program.methods
         .deposit(amount)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .accounts({
-          lendingAccount: userAccount.publicKey,
           mint: userAccount.mint,
-          authority: userPublicKey,
           userTokenAccount,
-          lendingVault,
-          depositReceipt,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
-        })
+        } as any)
         .rpc()
 
       console.log('Supply transaction successful:', tx)
@@ -102,30 +83,14 @@ export function LendingInfoCard() {
     try {
       const amount = new anchor.BN(parseFloat(supplyAmount) * 1_000_000)
       const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
-      const programId = readOnlyProgram.programId
-
-      const [lendingVault] = PublicKey.findProgramAddressSync(
-        [Buffer.from('lending_vault'), userAccount.publicKey.toBuffer()],
-        programId
-      )
-
-      const [depositReceipt] = PublicKey.findProgramAddressSync(
-        [Buffer.from('deposit_receipt'), userAccount.publicKey.toBuffer(), userPublicKey.toBuffer()],
-        programId
-      )
 
       const tx = await program.methods
         .borrow(amount)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .accounts({
-          lendingAccount: userAccount.publicKey,
           mint: userAccount.mint,
-          authority: userPublicKey,
           userTokenAccount,
-          lendingVault,
-          depositReceipt,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
-        })
+        } as any)
         .rpc()
 
       console.log('Borrow transaction successful:', tx)

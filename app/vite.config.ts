@@ -6,6 +6,7 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/jbl/',
   plugins: [react(), tailwindcss(), nodePolyfills()],
   define: {
     global: 'window',
