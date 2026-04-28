@@ -10,7 +10,7 @@ pub use error::ErrorCode;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("FGauH3y9Qh5k98WxExrz8CVcqUA6VQuepLPRNxfuB3JH");
+declare_id!("13u41zmNh2HykqTvh82K5vaTVTSegX9jMCFt2DqsoxLn");
 
 #[program]
 pub mod jbl {

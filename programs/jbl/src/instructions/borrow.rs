@@ -1,5 +1,6 @@
 use crate::state::{DepositReceipt, LendingAccount};
 use anchor_lang::prelude::*;
+use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
 #[derive(Accounts)]
@@ -17,13 +18,15 @@ pub struct Borrow<'info> {
     pub mint: Account<'info, Mint>,
 
     /// The authority that owns this lending account
+    #[account(mut)]
     pub authority: Signer<'info>,
 
-    /// The user's token account (destination)
+    /// The user's token account (destination) — created if it doesn't exist yet
     #[account(
-        mut,
-        constraint = user_token_account.owner == authority.key(),
-        constraint = user_token_account.mint == mint.key(),
+        init_if_needed,
+        payer = authority,
+        associated_token::mint = mint,
+        associated_token::authority = authority,
     )]
     pub user_token_account: Account<'info, TokenAccount>,
 
@@ -47,6 +50,8 @@ pub struct Borrow<'info> {
     pub deposit_receipt: Account<'info, DepositReceipt>,
 
     pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
 }
 
 pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {

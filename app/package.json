@@ -15,6 +15,7 @@
     "@solana/client": "^1.1.0",
     "@solana/kit": "^2.1.0",
     "@solana/react-hooks": "^1.1.0",
+    "@solana/spl-token": "^0.4.12",
     "@tailwindcss/vite": "^4.2.4",
     "buffer": "^6.0.3",
     "class-variance-authority": "^0.7.1",
@@ -37,6 +38,7 @@
     "globals": "^17.5.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
-    "vite": "^8.0.10"
+    "vite": "^8.0.10",
+    "vite-plugin-node-polyfills": "^0.26.0"
   }
 }

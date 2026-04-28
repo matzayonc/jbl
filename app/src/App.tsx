@@ -1,9 +1,21 @@
+import { useMemo } from 'react'
+import { PublicKey } from '@solana/web3.js'
 import { useWalletConnection } from '@solana/react-hooks'
+import { FaucetButton } from './components/FaucetButton'
 import { LendingInfoCard } from './components/LendingInfoCard'
+import { useLendingAccounts } from './hooks/useLendingAccounts'
 
 function WalletButton() {
   const { connected, connecting, connectors, connect, disconnect, wallet } =
     useWalletConnection()
+  const { accounts } = useLendingAccounts()
+
+  const userMint = useMemo((): PublicKey | null => {
+    if (!wallet?.account.publicKey) return null
+    const userKey = new PublicKey(wallet.account.publicKey).toBase58()
+    const acc = accounts.find(a => a.authority.toBase58() === userKey)
+    return acc ? acc.mint : null
+  }, [accounts, wallet])
 
   if (connected && wallet) {
     const addr = String(wallet.account.address)
@@ -12,12 +24,15 @@ function WalletButton() {
         <p className="font-mono text-sm text-gray-500">
           {addr.slice(0, 4)}…{addr.slice(-4)}
         </p>
-        <button
-          onClick={() => disconnect()}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-800"
-        >
-          Disconnect
-        </button>
+        <div className="flex gap-2">
+          {userMint && <FaucetButton mint={userMint} />}
+          <button
+            onClick={() => disconnect()}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-800"
+          >
+            Disconnect
+          </button>
+        </div>
       </div>
     )
   }

@@ -1,5 +1,10 @@
-import { useMemo } from 'react'
+import { Buffer } from 'buffer'
+import { useMemo, useState } from 'react'
 import { useWalletConnection } from '@solana/react-hooks'
+import { PublicKey, SystemProgram } from '@solana/web3.js'
+import { program as readOnlyProgram } from '../lib/program'
+import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import * as anchor from '@anchor-lang/core'
 import {
   Card,
   CardContent,
@@ -9,6 +14,7 @@ import {
 } from './ui/card'
 import { useLendingAccounts } from '../hooks/useLendingAccounts'
 import { CreateLendingAccountForm } from './CreateLendingAccountForm'
+import { useAnchorProgram } from '../hooks/useAnchorWallet'
 
 interface LendingData {
   totalSupply: number
@@ -24,10 +30,67 @@ interface LendingData {
 export function LendingInfoCard() {
   const { wallet } = useWalletConnection()
   const { accounts, loading, refetch } = useLendingAccounts()
+  const program = useAnchorProgram()
+
+  const [supplyAmount, setSupplyAmount] = useState('')
+  const [isSupplying, setIsSupplying] = useState(false)
+  const [txError, setTxError] = useState<string | null>(null)
 
   const userPublicKey = useMemo(() => {
-    return wallet?.account.publicKey ? wallet.account.publicKey : null
+    return wallet?.account.publicKey ? new PublicKey(wallet.account.publicKey) : null
   }, [wallet])
+
+  const userAccount = useMemo(() => {
+    if (!userPublicKey || !accounts.length) return null
+    return accounts.find(acc => acc.authority.toBase58() === userPublicKey.toBase58()) || null
+  }, [accounts, userPublicKey])
+
+  const handleSupply = async () => {
+    if (!program || !userAccount || !userPublicKey || !supplyAmount) return
+
+    setIsSupplying(true)
+    setTxError(null)
+
+    try {
+      const amount = new anchor.BN(parseFloat(supplyAmount) * 1_000_000)
+      const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
+
+      const programId = readOnlyProgram.programId
+
+      const [lendingVault] = PublicKey.findProgramAddressSync(
+        [Buffer.from('lending_vault'), userAccount.publicKey.toBuffer()],
+        programId
+      )
+
+      const [depositReceipt] = PublicKey.findProgramAddressSync(
+        [Buffer.from('deposit_receipt'), userAccount.publicKey.toBuffer(), userPublicKey.toBuffer()],
+        programId
+      )
+
+      const tx = await program.methods
+        .deposit(amount)
+        .accounts({
+          lendingAccount: userAccount.publicKey,
+          mint: userAccount.mint,
+          authority: userPublicKey,
+          userTokenAccount,
+          lendingVault,
+          depositReceipt,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc()
+
+      console.log('Supply transaction successful:', tx)
+      setSupplyAmount('')
+      refetch()
+    } catch (err) {
+      console.error('Supply failed:', err)
+      setTxError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setIsSupplying(false)
+    }
+  }
 
   const lendingData = useMemo((): LendingData => {
     if (loading || !accounts.length) {
@@ -53,11 +116,11 @@ export function LendingInfoCard() {
     accounts.forEach((acc) => {
       const dep = Number(acc.totalDeposited) / DECIMALS
       const bor = Number(acc.totalBorrowed) / DECIMALS
-      
+
       totalSupply += dep
       totalBorrowed += bor
 
-      if (userPublicKey && acc.authority.toBase58() === userPublicKey.toString()) {
+      if (userPublicKey && acc.authority.toBase58() === userPublicKey.toBase58()) {
         userDeposits += dep
         userBorrows += bor
       }
@@ -174,16 +237,44 @@ export function LendingInfoCard() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-4 pt-4">
-          <button className="flex-1 rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 transition-colors">
-            Supply
-          </button>
-          <button className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 transition-colors">
-            Borrow
-          </button>
-          <button className="flex-1 rounded-lg bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 transition-colors">
-            Withdraw
-          </button>
+        <div className="space-y-4 pt-4 border-t">
+          {userAccount ? (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="Amount to supply"
+                  value={supplyAmount}
+                  onChange={(e) => setSupplyAmount(e.target.value)}
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                  disabled={isSupplying}
+                />
+                <button
+                  onClick={handleSupply}
+                  disabled={isSupplying || !supplyAmount}
+                  className="rounded-lg bg-green-600 px-6 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  {isSupplying ? 'Supplying...' : 'Supply'}
+                </button>
+              </div>
+              {txError && (
+                <p className="text-xs text-red-500 font-mono break-all">{txError}</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">
+              Create your own lending pool above to start supplying tokens.
+            </p>
+          )}
+
+          <div className="flex gap-4">
+            <button className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 transition-colors opacity-50 cursor-not-allowed" disabled>
+              Borrow
+            </button>
+            <button className="flex-1 rounded-lg bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 transition-colors opacity-50 cursor-not-allowed" disabled>
+              Withdraw
+            </button>
+          </div>
         </div>
       </CardContent>
     </Card>
