@@ -3,12 +3,9 @@ import { Program, AnchorProvider } from "@coral-xyz/anchor";
 import {
   PublicKey,
   Keypair,
-  SystemProgram,
-  Connection,
   LAMPORTS_PER_SOL
 } from "@solana/web3.js";
 import {
-  TOKEN_PROGRAM_ID,
   createMint,
   createAssociatedTokenAccount,
   mintTo,
@@ -102,14 +99,9 @@ describe("jbl", () => {
       const txSignature = await program.methods
         .createLendingAccount()
         .accounts({
-          lendingAccount: lendingAccountPda,
-          lendingVault: lendingVaultPda,
-          lpMint: lpMintPda,
           mint: mint,
           authority: authority.publicKey,
           payer: payer.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
         })
         .signers([payer, authority])
         .rpc();
@@ -142,14 +134,9 @@ describe("jbl", () => {
       await program.methods
         .createLendingAccount()
         .accounts({
-          lendingAccount: lendingAccountPda,
-          lendingVault: lendingVaultPda,
-          lpMint: lpMintPda,
           mint: mint,
           authority: authority.publicKey,
           payer: payer.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          systemProgram: SystemProgram.programId,
         })
         .signers([payer, authority])
         .rpc();
@@ -168,14 +155,8 @@ describe("jbl", () => {
       await program.methods
         .deposit(new anchor.BN(depositAmount))
         .accounts({
-          lendingAccount: lendingAccountPda,
-          mint: mint,
-          lpMint: lpMintPda,
-          authority: authority.publicKey,
           userTokenAccount: userTokenAccount,
           userLpTokenAccount: userLpTokenAccount,
-          lendingVault: lendingVaultPda,
-          tokenProgram: TOKEN_PROGRAM_ID,
         })
         .signers([authority])
         .rpc();
@@ -202,14 +183,8 @@ describe("jbl", () => {
       await program.methods
         .deposit(new anchor.BN(secondDepositAmount))
         .accounts({
-          lendingAccount: lendingAccountPda,
-          mint: mint,
-          lpMint: lpMintPda,
-          authority: authority.publicKey,
           userTokenAccount: userTokenAccount,
           userLpTokenAccount: userLpTokenAccount,
-          lendingVault: lendingVaultPda,
-          tokenProgram: TOKEN_PROGRAM_ID,
         })
         .signers([authority])
         .rpc();

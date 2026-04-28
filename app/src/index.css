@@ -11,6 +11,21 @@
 
   --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, Consolas, monospace;
+
+  /* shadcn/ui color variables */
+  --color-card: #fff;
+  --color-card-foreground: #08060d;
+  --color-muted-foreground: #6b6375;
+  --color-border: #e5e4e7;
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-card: #0f0f0f;
+    --color-card-foreground: #fff;
+    --color-muted-foreground: #a1a1aa;
+    --color-border: #27272a;
+  }
 }
 
 @layer base {

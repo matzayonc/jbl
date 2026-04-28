@@ -1,4 +1,5 @@
 import { useWalletConnection } from '@solana/react-hooks'
+import { LendingInfoCard } from './components/LendingInfoCard'
 
 function WalletButton() {
   const { connected, connecting, connectors, connect, disconnect, wallet } =
@@ -42,9 +43,10 @@ function WalletButton() {
 
 function App() {
   return (
-    <main className="flex min-h-svh flex-col items-center justify-center gap-6 bg-white p-8 dark:bg-gray-950">
+    <main className="flex min-h-svh flex-col items-center justify-center gap-8 bg-white p-8 dark:bg-gray-950">
       <h1 className="text-5xl font-semibold tracking-tight text-pink-500">JBL</h1>
       <WalletButton />
+      <LendingInfoCard />
     </main>
   )
 }
