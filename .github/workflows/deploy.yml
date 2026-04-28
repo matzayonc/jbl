@@ -24,6 +24,15 @@ jobs:
         with:
           bun-version: latest
 
+      - uses: metadaoproject/setup-anchor@v3.3
+        with:
+          anchor-version: '1.0.1'
+          solana-cli-version: '3.1.14'
+          node-version: '25.8.1'
+
+      - name: Anchor build
+        run: anchor build --ignore-keys
+
       - name: Install dependencies
         working-directory: app
         run: bun install
