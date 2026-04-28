@@ -53,7 +53,7 @@ pub struct Deposit<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<Deposit>, amount: u64) -> Result<()> {
+pub fn deposit_handler(ctx: Context<Deposit>, amount: u64) -> Result<()> {
     let lending_account = &mut ctx.accounts.lending_account;
 
     require!(amount > 0, crate::error::ErrorCode::InvalidAmount);

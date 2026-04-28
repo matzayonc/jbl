@@ -1,10 +1,14 @@
+import { useMemo } from 'react'
+import { useWalletConnection } from '@solana/react-hooks'
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from './ui/card'
+import { useLendingAccounts } from '../hooks/useLendingAccounts'
+import { CreateLendingAccountForm } from './CreateLendingAccountForm'
 
 interface LendingData {
   totalSupply: number
@@ -18,17 +22,61 @@ interface LendingData {
 }
 
 export function LendingInfoCard() {
-  // Initialize all data with 42 as placeholder values
-  const lendingData: LendingData = {
-    totalSupply: 42,
-    totalBorrowed: 42,
-    supplyApy: 42,
-    borrowApy: 42,
-    utilizationRate: 42,
-    availableLiquidity: 42,
-    userDeposits: 42,
-    userBorrows: 42,
-  }
+  const { wallet } = useWalletConnection()
+  const { accounts, loading, refetch } = useLendingAccounts()
+
+  const userPublicKey = useMemo(() => {
+    return wallet?.account.publicKey ? wallet.account.publicKey : null
+  }, [wallet])
+
+  const lendingData = useMemo((): LendingData => {
+    if (loading || !accounts.length) {
+      return {
+        totalSupply: 0,
+        totalBorrowed: 0,
+        supplyApy: 0,
+        borrowApy: 0,
+        utilizationRate: 0,
+        availableLiquidity: 0,
+        userDeposits: 0,
+        userBorrows: 0,
+      }
+    }
+
+    const DECIMALS = 1_000_000 // Assuming 6 decimals for now
+
+    let totalSupply = 0
+    let totalBorrowed = 0
+    let userDeposits = 0
+    let userBorrows = 0
+
+    accounts.forEach((acc) => {
+      const dep = Number(acc.totalDeposited) / DECIMALS
+      const bor = Number(acc.totalBorrowed) / DECIMALS
+      
+      totalSupply += dep
+      totalBorrowed += bor
+
+      if (userPublicKey && acc.authority.toBase58() === userPublicKey.toString()) {
+        userDeposits += dep
+        userBorrows += bor
+      }
+    })
+
+    const utilizationRate = totalSupply > 0 ? (totalBorrowed / totalSupply) * 100 : 0
+    const availableLiquidity = totalSupply - totalBorrowed
+
+    return {
+      totalSupply,
+      totalBorrowed,
+      supplyApy: 5.2, // Mocked for now as program doesn't have APY logic
+      borrowApy: 8.4, // Mocked for now
+      utilizationRate,
+      availableLiquidity,
+      userDeposits,
+      userBorrows,
+    }
+  }, [accounts, loading, userPublicKey])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -41,6 +89,30 @@ export function LendingInfoCard() {
 
   const formatPercentage = (rate: number) => {
     return `${rate.toFixed(2)}%`
+  }
+
+  if (loading) {
+    return (
+      <div className="w-full max-w-2xl p-12 flex justify-center items-center text-muted-foreground font-medium animate-pulse">
+        Loading protocol statistics...
+      </div>
+    )
+  }
+
+  if (accounts.length === 0) {
+    return (
+      <Card className="w-full max-w-2xl border-pink-200">
+        <CardHeader>
+          <CardTitle>No Pools Found</CardTitle>
+          <CardDescription>
+            There are currently no active lending pools on this cluster.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CreateLendingAccountForm onCreated={() => refetch()} />
+        </CardContent>
+      </Card>
+    )
   }
 
   return (

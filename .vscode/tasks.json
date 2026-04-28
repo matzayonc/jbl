@@ -1,0 +1,17 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "app dev",
+			"type": "shell",
+			"command": "cd app && npm run dev",
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "npm install app",
+			"type": "shell",
+			"command": "cd app && npm install"
+		},
+	]
+}

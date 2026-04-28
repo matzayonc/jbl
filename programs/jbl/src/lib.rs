@@ -17,22 +17,22 @@ pub mod jbl {
     use super::*;
 
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        initialize::handler(ctx)
+        initialize_handler(ctx)
     }
 
     pub fn create_lending_account(ctx: Context<CreateLendingAccount>) -> Result<()> {
-        create_lending_account::handler(ctx)
+        create_lending_account_handler(ctx)
     }
 
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
-        deposit::handler(ctx, amount)
+        deposit_handler(ctx, amount)
     }
 
     pub fn borrow(ctx: Context<Borrow>, amount: u64) -> Result<()> {
-        borrow::handler(ctx, amount)
+        borrow_handler(ctx, amount)
     }
 
     pub fn take_lp(ctx: Context<TakeLp>) -> Result<()> {
-        take_lp::handler(ctx)
+        take_lp_handler(ctx)
     }
 }

@@ -1,5 +1,5 @@
-import * as anchor from "@coral-xyz/anchor";
-import { Program, AnchorProvider } from "@coral-xyz/anchor";
+import * as anchor from "@anchor-lang/core";
+import { Program, AnchorProvider } from "@anchor-lang/core";
 import {
   PublicKey,
   Keypair,
@@ -141,7 +141,7 @@ describe("jbl", () => {
         .signers([payer, authority])
         .rpc();
 
-      // Create LP token account for user (this would normally be done automatically)
+      // Create LP token account for user
       userLpTokenAccount = await createAssociatedTokenAccount(
         connection,
         payer,
@@ -151,11 +151,23 @@ describe("jbl", () => {
 
       const depositAmount = 100000000; // 100 tokens with 6 decimals
 
-      // Execute first deposit (should be 1:1 ratio)
+      // Execute first deposit
       await program.methods
         .deposit(new anchor.BN(depositAmount))
         .accounts({
+          mint: mint,
+          authority: authority.publicKey,
           userTokenAccount: userTokenAccount,
+        })
+        .signers([authority])
+        .rpc();
+
+      // Claim LP tokens
+      await program.methods
+        .takeLp()
+        .accounts({
+          mint: mint,
+          authority: authority.publicKey,
           userLpTokenAccount: userLpTokenAccount,
         })
         .signers([authority])
@@ -175,7 +187,6 @@ describe("jbl", () => {
       console.log("Deposited:", depositAmount);
       console.log("LP tokens issued:", lendingAccount.totalLpIssued.toString());
       console.log("User LP token balance:", userLpAccountAfterFirst.amount.toString());
-      console.log("Ratio:", lendingAccount.totalLpIssued.toNumber() / lendingAccount.totalDeposited.toNumber());
 
       // Make a second deposit to test ratio calculation
       const secondDepositAmount = 50000000; // 50 tokens
@@ -183,7 +194,19 @@ describe("jbl", () => {
       await program.methods
         .deposit(new anchor.BN(secondDepositAmount))
         .accounts({
+          mint: mint,
+          authority: authority.publicKey,
           userTokenAccount: userTokenAccount,
+        })
+        .signers([authority])
+        .rpc();
+
+      // Claim LP tokens for second deposit
+      await program.methods
+        .takeLp()
+        .accounts({
+          mint: mint,
+          authority: authority.publicKey,
           userLpTokenAccount: userLpTokenAccount,
         })
         .signers([authority])
@@ -191,8 +214,6 @@ describe("jbl", () => {
 
       const updatedLendingAccount = await program.account.lendingAccount.fetch(lendingAccountPda);
 
-      // Expected LP for second deposit: secondDepositAmount * totalLpIssued / totalDeposited
-      // At this point totalLpIssued == depositAmount and totalDeposited == depositAmount (1:1), so LP = secondDepositAmount
       const expectedTotalLp = depositAmount + secondDepositAmount;
       expect(updatedLendingAccount.totalLpIssued.toString()).to.equal(expectedTotalLp.toString());
 
@@ -201,10 +222,6 @@ describe("jbl", () => {
       expect(userLpAccountAfterSecond.amount.toString()).to.equal(expectedTotalLp.toString());
 
       console.log("✅ Second deposit successful");
-      console.log("Total deposited:", updatedLendingAccount.totalDeposited.toString());
-      console.log("Total LP issued:", updatedLendingAccount.totalLpIssued.toString());
-      console.log("User LP token balance:", userLpAccountAfterSecond.amount.toString());
-      console.log("Exchange rate:", updatedLendingAccount.totalDeposited.toNumber() / updatedLendingAccount.totalLpIssued.toNumber());
     });
 
     it("Tests borrowing against deposited funds", async () => {
@@ -219,22 +236,15 @@ describe("jbl", () => {
         .signers([payer, authority])
         .rpc();
 
-      // Create LP token account for user
-      userLpTokenAccount = await createAssociatedTokenAccount(
-        connection,
-        payer,
-        lpMintPda,
-        authority.publicKey
-      );
-
       const depositAmount = 100000000; // 100 tokens with 6 decimals
 
       // First deposit to have funds in the vault
       await program.methods
         .deposit(new anchor.BN(depositAmount))
         .accounts({
+          mint: mint,
+          authority: authority.publicKey,
           userTokenAccount: userTokenAccount,
-          userLpTokenAccount: userLpTokenAccount,
         })
         .signers([authority])
         .rpc();
@@ -243,12 +253,14 @@ describe("jbl", () => {
       const userTokenBalanceBefore = await getAccount(connection, userTokenAccount);
       console.log("User token balance before borrow:", userTokenBalanceBefore.amount.toString());
 
-      const borrowAmount = 50000000; // 50 tokens (50% of deposited)
+      const borrowAmount = 50000000; // 50 tokens (50% of deposited, LTV is 75%)
 
       // Execute borrow instruction
       await program.methods
         .borrow(new anchor.BN(borrowAmount))
         .accounts({
+          mint: mint,
+          authority: authority.publicKey,
           userTokenAccount: userTokenAccount,
         })
         .signers([authority])
@@ -261,14 +273,11 @@ describe("jbl", () => {
 
       // Check balance after borrow
       const userTokenBalanceAfter = await getAccount(connection, userTokenAccount);
-      const expectedBalance = BigInt(userTokenBalanceBefore.amount.toString()) - BigInt(depositAmount) + BigInt(borrowAmount);
+      // userTokenAccount started with 1000, deposited 100, now borrowed 50. Balance should be 1000 - 100 + 50 = 950.
+      const expectedBalance = BigInt(userTokenBalanceBefore.amount.toString()) + BigInt(borrowAmount);
       expect(userTokenBalanceAfter.amount.toString()).to.equal(expectedBalance.toString());
 
       console.log("✅ Borrow successful");
-      console.log("Borrowed amount:", borrowAmount);
-      console.log("Total borrowed:", lendingAccount.totalBorrowed.toString());
-      console.log("User token balance after borrow:", userTokenBalanceAfter.amount.toString());
-      console.log("Available to borrow:", (lendingAccount.totalDeposited.toNumber() * 0.8 - lendingAccount.totalBorrowed.toNumber()).toString());
     });
   });
 });

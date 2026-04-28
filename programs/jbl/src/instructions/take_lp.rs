@@ -26,6 +26,7 @@ pub struct TakeLp<'info> {
     pub lp_mint: Account<'info, Mint>,
 
     /// The authority claiming their LP tokens
+    #[account(mut)]
     pub authority: Signer<'info>,
 
     /// The deposit receipt to consume
@@ -51,7 +52,7 @@ pub struct TakeLp<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-pub fn handler(ctx: Context<TakeLp>) -> Result<()> {
+pub fn take_lp_handler(ctx: Context<TakeLp>) -> Result<()> {
     let lp_tokens_to_mint = ctx.accounts.deposit_receipt.lp_tokens_owed;
 
     require!(

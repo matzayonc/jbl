@@ -49,7 +49,7 @@ pub struct Borrow<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-pub fn handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
+pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
     let lending_account = &mut ctx.accounts.lending_account;
 
     require!(amount > 0, crate::error::ErrorCode::InvalidAmount);

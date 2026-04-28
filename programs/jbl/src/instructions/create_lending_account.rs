@@ -49,7 +49,7 @@ pub struct CreateLendingAccount<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<CreateLendingAccount>) -> Result<()> {
+pub fn create_lending_account_handler(ctx: Context<CreateLendingAccount>) -> Result<()> {
     let lending_account = &mut ctx.accounts.lending_account;
     let authority = &ctx.accounts.authority;
     let mint = &ctx.accounts.mint;
