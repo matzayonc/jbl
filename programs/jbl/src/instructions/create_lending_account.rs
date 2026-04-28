@@ -1,6 +1,6 @@
+use crate::state::LendingAccount;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
-use crate::state::LendingAccount;
 
 #[derive(Accounts)]
 pub struct CreateLendingAccount<'info> {
@@ -64,6 +64,7 @@ pub fn handler(ctx: Context<CreateLendingAccount>) -> Result<()> {
     lending_account.total_borrowed = 0;
     lending_account.total_lp_issued = 0;
     lending_account.last_update_slot = Clock::get()?.slot;
+    lending_account.ltv_percent = 75; // Default to 75% LTV
     lending_account.bump = bump;
     lending_account.lp_mint_bump = lp_mint_bump;
 

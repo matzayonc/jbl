@@ -1,4 +1,4 @@
-use crate::state::LendingAccount;
+use crate::state::{DepositReceipt, LendingAccount};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
@@ -36,6 +36,16 @@ pub struct Borrow<'info> {
     )]
     pub lending_vault: Account<'info, TokenAccount>,
 
+    /// The user's deposit receipt — used as collateral for this borrow
+    #[account(
+        seeds = [b"deposit_receipt", lending_account.key().as_ref(), authority.key().as_ref()],
+        bump = deposit_receipt.bump,
+        has_one = authority,
+        constraint = deposit_receipt.lending_account == lending_account.key()
+            @ crate::error::ErrorCode::InvalidAmount,
+    )]
+    pub deposit_receipt: Account<'info, DepositReceipt>,
+
     pub token_program: Program<'info, Token>,
 }
 
@@ -50,10 +60,12 @@ pub fn handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
         crate::error::ErrorCode::InsufficientFunds
     );
 
-    // Calculate max borrowable amount (80% of deposited amount minus already borrowed)
-    let max_borrowable = lending_account
-        .total_deposited
-        .checked_mul(80)
+    // Calculate max borrowable amount based on user's deposited collateral (not pool total)
+    let max_borrowable = ctx
+        .accounts
+        .deposit_receipt
+        .deposited_amount
+        .checked_mul(lending_account.ltv_percent as u64)
         .ok_or(crate::error::ErrorCode::MathOverflow)?
         .checked_div(100)
         .ok_or(crate::error::ErrorCode::MathOverflow)?;

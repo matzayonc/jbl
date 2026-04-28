@@ -31,4 +31,8 @@ pub mod jbl {
     pub fn borrow(ctx: Context<Borrow>, amount: u64) -> Result<()> {
         borrow::handler(ctx, amount)
     }
+
+    pub fn take_lp(ctx: Context<TakeLp>) -> Result<()> {
+        take_lp::handler(ctx)
+    }
 }
