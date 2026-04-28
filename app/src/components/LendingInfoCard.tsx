@@ -34,6 +34,7 @@ export function LendingInfoCard() {
 
   const [supplyAmount, setSupplyAmount] = useState('')
   const [isSupplying, setIsSupplying] = useState(false)
+  const [isBorrowing, setIsBorrowing] = useState(false)
   const [txError, setTxError] = useState<string | null>(null)
 
   const userPublicKey = useMemo(() => {
@@ -89,6 +90,52 @@ export function LendingInfoCard() {
       setTxError(err instanceof Error ? err.message : String(err))
     } finally {
       setIsSupplying(false)
+    }
+  }
+
+  const handleBorrow = async () => {
+    if (!program || !userAccount || !userPublicKey || !supplyAmount) return
+
+    setIsBorrowing(true)
+    setTxError(null)
+
+    try {
+      const amount = new anchor.BN(parseFloat(supplyAmount) * 1_000_000)
+      const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
+      const programId = readOnlyProgram.programId
+
+      const [lendingVault] = PublicKey.findProgramAddressSync(
+        [Buffer.from('lending_vault'), userAccount.publicKey.toBuffer()],
+        programId
+      )
+
+      const [depositReceipt] = PublicKey.findProgramAddressSync(
+        [Buffer.from('deposit_receipt'), userAccount.publicKey.toBuffer(), userPublicKey.toBuffer()],
+        programId
+      )
+
+      const tx = await program.methods
+        .borrow(amount)
+        .accounts({
+          lendingAccount: userAccount.publicKey,
+          mint: userAccount.mint,
+          authority: userPublicKey,
+          userTokenAccount,
+          lendingVault,
+          depositReceipt,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc()
+
+      console.log('Borrow transaction successful:', tx)
+      setSupplyAmount('')
+      refetch()
+    } catch (err) {
+      console.error('Borrow failed:', err)
+      setTxError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setIsBorrowing(false)
     }
   }
 
@@ -240,21 +287,28 @@ export function LendingInfoCard() {
         <div className="space-y-4 pt-4 border-t">
           {userAccount ? (
             <div className="space-y-3">
+              <input
+                type="number"
+                placeholder="Amount"
+                value={supplyAmount}
+                onChange={(e) => setSupplyAmount(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
+                disabled={isSupplying || isBorrowing}
+              />
               <div className="flex gap-2">
-                <input
-                  type="number"
-                  placeholder="Amount to supply"
-                  value={supplyAmount}
-                  onChange={(e) => setSupplyAmount(e.target.value)}
-                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-                  disabled={isSupplying}
-                />
                 <button
                   onClick={handleSupply}
-                  disabled={isSupplying || !supplyAmount}
-                  className="rounded-lg bg-green-600 px-6 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors disabled:opacity-50"
+                  disabled={isSupplying || isBorrowing || !supplyAmount}
+                  className="flex-1 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
-                  {isSupplying ? 'Supplying...' : 'Supply'}
+                  {isSupplying ? 'Supplying…' : 'Supply'}
+                </button>
+                <button
+                  onClick={handleBorrow}
+                  disabled={isSupplying || isBorrowing || !supplyAmount}
+                  className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {isBorrowing ? 'Borrowing…' : 'Borrow'}
                 </button>
               </div>
               {txError && (
@@ -266,15 +320,6 @@ export function LendingInfoCard() {
               Create your own lending pool above to start supplying tokens.
             </p>
           )}
-
-          <div className="flex gap-4">
-            <button className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 transition-colors opacity-50 cursor-not-allowed" disabled>
-              Borrow
-            </button>
-            <button className="flex-1 rounded-lg bg-gray-600 px-4 py-2 text-white hover:bg-gray-700 transition-colors opacity-50 cursor-not-allowed" disabled>
-              Withdraw
-            </button>
-          </div>
         </div>
       </CardContent>
     </Card>
