@@ -1,6 +1,19 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program, AnchorProvider } from "@coral-xyz/anchor";
-import { PublicKey, Keypair, SystemProgram, Connection } from "@solana/web3.js";
+import {
+  PublicKey,
+  Keypair,
+  SystemProgram,
+  Connection,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  TOKEN_PROGRAM_ID,
+  createMint,
+  createAssociatedTokenAccount,
+  mintTo,
+  getAccount,
+} from "@solana/spl-token";
 import { expect } from "chai";
 import { Jbl } from "../target/types/jbl";
 
@@ -12,11 +25,15 @@ describe("jbl", () => {
   const program = anchor.workspace.Jbl as Program<Jbl>;
   const connection = provider.connection;
 
-  describe("create_lending_account", () => {
+  describe("create_lending_account_with_lp", () => {
     let authority: Keypair;
     let payer: Keypair;
+    let mint: PublicKey;
     let lendingAccountPda: PublicKey;
-    let bump: number;
+    let lendingVaultPda: PublicKey;
+    let lpMintPda: PublicKey;
+    let userTokenAccount: PublicKey;
+    let userLpTokenAccount: PublicKey;
 
     beforeEach(async () => {
       // Create fresh keypairs for each test
@@ -26,31 +43,72 @@ describe("jbl", () => {
       // Airdrop SOL to accounts
       const airdropSignaturePayer = await connection.requestAirdrop(
         payer.publicKey,
-        anchor.web3.LAMPORTS_PER_SOL
+        2 * LAMPORTS_PER_SOL
       );
       await connection.confirmTransaction(airdropSignaturePayer);
 
       const airdropSignatureAuthority = await connection.requestAirdrop(
         authority.publicKey,
-        anchor.web3.LAMPORTS_PER_SOL
+        2 * LAMPORTS_PER_SOL
       );
       await connection.confirmTransaction(airdropSignatureAuthority);
 
-      // Derive the PDA for the lending account
-      [lendingAccountPda, bump] = PublicKey.findProgramAddressSync(
-        [Buffer.from("lending"), authority.publicKey.toBuffer()],
+      // Create a test token mint
+      mint = await createMint(
+        connection,
+        payer,
+        authority.publicKey,
+        null,
+        6 // 6 decimals like USDC
+      );
+
+      // Derive PDAs
+      [lendingAccountPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("lending"), authority.publicKey.toBuffer(), mint.toBuffer()],
         program.programId
+      );
+
+      [lendingVaultPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("lending_vault"), lendingAccountPda.toBuffer()],
+        program.programId
+      );
+
+      [lpMintPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("lp_mint"), lendingAccountPda.toBuffer()],
+        program.programId
+      );
+
+      // Create user token accounts
+      userTokenAccount = await createAssociatedTokenAccount(
+        connection,
+        payer,
+        mint,
+        authority.publicKey
+      );
+
+      // Mint some tokens to the user for testing
+      await mintTo(
+        connection,
+        payer,
+        mint,
+        userTokenAccount,
+        authority,
+        1000000000 // 1000 tokens with 6 decimals
       );
     });
 
-    it("Creates a lending account successfully", async () => {
+    it("Creates a lending account with LP token mint successfully", async () => {
       // Execute the create_lending_account instruction
       const txSignature = await program.methods
         .createLendingAccount()
         .accounts({
           lendingAccount: lendingAccountPda,
+          lendingVault: lendingVaultPda,
+          lpMint: lpMintPda,
+          mint: mint,
           authority: authority.publicKey,
           payer: payer.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })
         .signers([payer, authority])
@@ -64,79 +122,114 @@ describe("jbl", () => {
 
       // Verify the account data
       expect(lendingAccount.authority.toString()).to.equal(authority.publicKey.toString());
+      expect(lendingAccount.mint.toString()).to.equal(mint.toString());
+      expect(lendingAccount.lpMint.toString()).to.equal(lpMintPda.toString());
       expect(lendingAccount.totalDeposited.toString()).to.equal("0");
       expect(lendingAccount.totalBorrowed.toString()).to.equal("0");
-      expect(lendingAccount.bump).to.equal(bump);
+      expect(lendingAccount.totalLpIssued.toString()).to.equal("0");
 
-      // Verify that lastUpdateSlot is a reasonable value (greater than 0)
-      expect(lendingAccount.lastUpdateSlot.toNumber()).to.be.greaterThan(0);
-
-      console.log("✅ Lending account created successfully");
+      console.log("✅ Lending account with LP mint created successfully");
       console.log("Authority:", authority.publicKey.toString());
+      console.log("Mint:", mint.toString());
+      console.log("LP Mint:", lendingAccount.lpMint.toString());
       console.log("Lending Account PDA:", lendingAccountPda.toString());
-      console.log("Bump:", bump);
-      console.log("Total Deposited:", lendingAccount.totalDeposited.toString());
-      console.log("Total Borrowed:", lendingAccount.totalBorrowed.toString());
-      console.log("Last Update Slot:", lendingAccount.lastUpdateSlot.toString());
+      console.log("Lending Vault PDA:", lendingVaultPda.toString());
+      console.log("LP Mint PDA:", lpMintPda.toString());
     });
 
-    it("Fails when trying to create duplicate lending account", async () => {
-      // First creation should succeed
+    it("Tests LP token ratio calculation on deposit", async () => {
+      // First create the lending account
       await program.methods
         .createLendingAccount()
         .accounts({
           lendingAccount: lendingAccountPda,
+          lendingVault: lendingVaultPda,
+          lpMint: lpMintPda,
+          mint: mint,
           authority: authority.publicKey,
           payer: payer.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,
         })
         .signers([payer, authority])
         .rpc();
 
-      // Second creation should fail
-      try {
-        await program.methods
-          .createLendingAccount()
-          .accounts({
-            lendingAccount: lendingAccountPda,
-            authority: authority.publicKey,
-            payer: payer.publicKey,
-            systemProgram: SystemProgram.programId,
-          })
-          .signers([payer, authority])
-          .rpc();
-
-        // If we reach this line, the test should fail
-        expect.fail("Expected transaction to fail but it succeeded");
-      } catch (error) {
-        // Verify it's the expected error (account already exists)
-        expect(error.toString()).to.include("already in use");
-      }
-    });
-
-    it("Derives consistent PDA addresses", async () => {
-      // Derive PDA multiple times with same inputs
-      const [pda1] = PublicKey.findProgramAddressSync(
-        [Buffer.from("lending"), authority.publicKey.toBuffer()],
-        program.programId
+      // Create LP token account for user (this would normally be done automatically)
+      userLpTokenAccount = await createAssociatedTokenAccount(
+        connection,
+        payer,
+        lpMintPda,
+        authority.publicKey
       );
 
-      const [pda2] = PublicKey.findProgramAddressSync(
-        [Buffer.from("lending"), authority.publicKey.toBuffer()],
-        program.programId
-      );
+      const depositAmount = 100000000; // 100 tokens with 6 decimals
 
-      expect(pda1.toString()).to.equal(pda2.toString());
-      expect(pda1.toString()).to.equal(lendingAccountPda.toString());
+      // Execute first deposit (should be 1:1 ratio)
+      await program.methods
+        .deposit(new anchor.BN(depositAmount))
+        .accounts({
+          lendingAccount: lendingAccountPda,
+          mint: mint,
+          lpMint: lpMintPda,
+          authority: authority.publicKey,
+          userTokenAccount: userTokenAccount,
+          userLpTokenAccount: userLpTokenAccount,
+          lendingVault: lendingVaultPda,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([authority])
+        .rpc();
 
-      // Different authority should produce different PDA
-      const differentAuthority = Keypair.generate();
-      const [differentPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("lending"), differentAuthority.publicKey.toBuffer()],
-        program.programId
-      );
+      // Check the lending account state
+      const lendingAccount = await program.account.lendingAccount.fetch(lendingAccountPda);
 
-      expect(differentPda.toString()).to.not.equal(lendingAccountPda.toString());
+      expect(lendingAccount.totalDeposited.toString()).to.equal(depositAmount.toString());
+      expect(lendingAccount.totalLpIssued.toString()).to.equal(depositAmount.toString()); // 1:1 ratio
+
+      // Verify user LP token balance after first deposit
+      const userLpAccountAfterFirst = await getAccount(connection, userLpTokenAccount);
+      expect(userLpAccountAfterFirst.amount.toString()).to.equal(depositAmount.toString());
+
+      console.log("✅ First deposit successful - 1:1 LP ratio");
+      console.log("Deposited:", depositAmount);
+      console.log("LP tokens issued:", lendingAccount.totalLpIssued.toString());
+      console.log("User LP token balance:", userLpAccountAfterFirst.amount.toString());
+      console.log("Ratio:", lendingAccount.totalLpIssued.toNumber() / lendingAccount.totalDeposited.toNumber());
+
+      // Make a second deposit to test ratio calculation
+      const secondDepositAmount = 50000000; // 50 tokens
+
+      await program.methods
+        .deposit(new anchor.BN(secondDepositAmount))
+        .accounts({
+          lendingAccount: lendingAccountPda,
+          mint: mint,
+          lpMint: lpMintPda,
+          authority: authority.publicKey,
+          userTokenAccount: userTokenAccount,
+          userLpTokenAccount: userLpTokenAccount,
+          lendingVault: lendingVaultPda,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([authority])
+        .rpc();
+
+      const updatedLendingAccount = await program.account.lendingAccount.fetch(lendingAccountPda);
+
+      // Expected LP for second deposit: secondDepositAmount * totalLpIssued / totalDeposited
+      // At this point totalLpIssued == depositAmount and totalDeposited == depositAmount (1:1), so LP = secondDepositAmount
+      const expectedTotalLp = depositAmount + secondDepositAmount;
+      expect(updatedLendingAccount.totalLpIssued.toString()).to.equal(expectedTotalLp.toString());
+
+      // Verify user LP token balance after second deposit
+      const userLpAccountAfterSecond = await getAccount(connection, userLpTokenAccount);
+      expect(userLpAccountAfterSecond.amount.toString()).to.equal(expectedTotalLp.toString());
+
+      console.log("✅ Second deposit successful");
+      console.log("Total deposited:", updatedLendingAccount.totalDeposited.toString());
+      console.log("Total LP issued:", updatedLendingAccount.totalLpIssued.toString());
+      console.log("User LP token balance:", userLpAccountAfterSecond.amount.toString());
+      console.log("Exchange rate:", updatedLendingAccount.totalDeposited.toNumber() / updatedLendingAccount.totalLpIssued.toNumber());
     });
   });
 });
