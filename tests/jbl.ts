@@ -206,5 +206,69 @@ describe("jbl", () => {
       console.log("User LP token balance:", userLpAccountAfterSecond.amount.toString());
       console.log("Exchange rate:", updatedLendingAccount.totalDeposited.toNumber() / updatedLendingAccount.totalLpIssued.toNumber());
     });
+
+    it("Tests borrowing against deposited funds", async () => {
+      // First create the lending account
+      await program.methods
+        .createLendingAccount()
+        .accounts({
+          mint: mint,
+          authority: authority.publicKey,
+          payer: payer.publicKey,
+        })
+        .signers([payer, authority])
+        .rpc();
+
+      // Create LP token account for user
+      userLpTokenAccount = await createAssociatedTokenAccount(
+        connection,
+        payer,
+        lpMintPda,
+        authority.publicKey
+      );
+
+      const depositAmount = 100000000; // 100 tokens with 6 decimals
+
+      // First deposit to have funds in the vault
+      await program.methods
+        .deposit(new anchor.BN(depositAmount))
+        .accounts({
+          userTokenAccount: userTokenAccount,
+          userLpTokenAccount: userLpTokenAccount,
+        })
+        .signers([authority])
+        .rpc();
+
+      // Check balance before borrow
+      const userTokenBalanceBefore = await getAccount(connection, userTokenAccount);
+      console.log("User token balance before borrow:", userTokenBalanceBefore.amount.toString());
+
+      const borrowAmount = 50000000; // 50 tokens (50% of deposited)
+
+      // Execute borrow instruction
+      await program.methods
+        .borrow(new anchor.BN(borrowAmount))
+        .accounts({
+          userTokenAccount: userTokenAccount,
+        })
+        .signers([authority])
+        .rpc();
+
+      // Check the lending account state after borrow
+      const lendingAccount = await program.account.lendingAccount.fetch(lendingAccountPda);
+
+      expect(lendingAccount.totalBorrowed.toString()).to.equal(borrowAmount.toString());
+
+      // Check balance after borrow
+      const userTokenBalanceAfter = await getAccount(connection, userTokenAccount);
+      const expectedBalance = BigInt(userTokenBalanceBefore.amount.toString()) - BigInt(depositAmount) + BigInt(borrowAmount);
+      expect(userTokenBalanceAfter.amount.toString()).to.equal(expectedBalance.toString());
+
+      console.log("✅ Borrow successful");
+      console.log("Borrowed amount:", borrowAmount);
+      console.log("Total borrowed:", lendingAccount.totalBorrowed.toString());
+      console.log("User token balance after borrow:", userTokenBalanceAfter.amount.toString());
+      console.log("Available to borrow:", (lendingAccount.totalDeposited.toNumber() * 0.8 - lendingAccount.totalBorrowed.toNumber()).toString());
+    });
   });
 });

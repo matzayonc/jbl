@@ -27,4 +27,8 @@ pub mod jbl {
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
         deposit::handler(ctx, amount)
     }
+
+    pub fn borrow(ctx: Context<Borrow>, amount: u64) -> Result<()> {
+        borrow::handler(ctx, amount)
+    }
 }
