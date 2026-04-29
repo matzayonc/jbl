@@ -131,7 +131,8 @@ export function LendingInfoCard() {
         try {
             const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const tx = await program.methods.repay().accounts({ mint: userAccount.mint, userTokenAccount } as any).rpc()
+            const lamports = new anchor.BN(parseFloat(amount || '0') * TOKEN_DECIMALS)
+            const tx = await program.methods.repay(lamports).accounts({ mint: userAccount.mint, userTokenAccount } as any).rpc()
             console.log('Repay tx:', tx)
             refetch()
         } catch (err) {

@@ -28,7 +28,7 @@ export function useLendingAccount(
                     [new TextEncoder().encode(LENDING_SEED), authority!.toBytes(), mint!.toBytes()],
                     program.programId,
                 )
-                const data = await program.account.lendingAccount.fetch(pda)
+                const data = await program.account.pool.fetch(pda)
                 if (!cancelled) {
                     setAccount({
                         publicKey: pda,
@@ -38,7 +38,7 @@ export function useLendingAccount(
                         totalDeposited: BigInt(data.totalDeposited.toString()),
                         totalBorrowed: BigInt(data.totalBorrowed.toString()),
                         totalLpIssued: BigInt(data.totalLpIssued.toString()),
-                        lastUpdateSlot: BigInt(data.lastUpdateSlot.toString()),
+                        lastAccrualTs: BigInt(data.lastAccrualTs.toString()),
                         bump: data.bump,
                         lpMintBump: data.lpMintBump,
                         borrowFeeBps: data.borrowFeeBps,

@@ -8,7 +8,7 @@ export interface LendingAccountData {
     totalDeposited: bigint
     totalBorrowed: bigint
     totalLpIssued: bigint
-    lastUpdateSlot: bigint
+    lastAccrualTs: bigint
     bump: number
     lpMintBump: number
     borrowFeeBps: number

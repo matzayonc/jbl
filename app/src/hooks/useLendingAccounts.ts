@@ -24,7 +24,7 @@ export function useLendingAccounts(): UseLendingAccountsResult {
             setLoading(true)
             setError(null)
             try {
-                const all = await program.account.lendingAccount.all()
+                const all = await program.account.pool.all()
                 if (!cancelled) {
                     setAccounts(
                         all.map(({ publicKey, account }) => ({
@@ -35,7 +35,7 @@ export function useLendingAccounts(): UseLendingAccountsResult {
                             totalDeposited: BigInt(account.totalDeposited.toString()),
                             totalBorrowed: BigInt(account.totalBorrowed.toString()),
                             totalLpIssued: BigInt(account.totalLpIssued.toString()),
-                            lastUpdateSlot: BigInt(account.lastUpdateSlot.toString()),
+                            lastAccrualTs: BigInt(account.lastAccrualTs.toString()),
                             bump: account.bump,
                             lpMintBump: account.lpMintBump,
                             borrowFeeBps: account.borrowFeeBps,
