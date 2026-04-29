@@ -1,6 +1,7 @@
 pub mod constants;
 pub mod error;
 pub mod instructions;
+pub mod math;
 pub mod state;
 
 use anchor_lang::prelude::*;
@@ -10,7 +11,7 @@ pub use error::ErrorCode;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("13u41zmNh2HykqTvh82K5vaTVTSegX9jMCFt2DqsoxLn");
+declare_id!("GxH1TNYSn9NfrNbZ1hbvwprhxb9LhBde3ELmF29fZy9c");
 
 #[program]
 pub mod jbl {
@@ -20,8 +21,8 @@ pub mod jbl {
         initialize_handler(ctx)
     }
 
-    pub fn create_lending_account(ctx: Context<CreateLendingAccount>) -> Result<()> {
-        create_lending_account_handler(ctx)
+    pub fn create(ctx: Context<Create>, borrow_fee_bps: u32) -> Result<()> {
+        create_handler(ctx, borrow_fee_bps)
     }
 
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
@@ -34,5 +35,9 @@ pub mod jbl {
 
     pub fn take_lp(ctx: Context<TakeLp>) -> Result<()> {
         take_lp_handler(ctx)
+    }
+
+    pub fn repay(ctx: Context<Repay>) -> Result<()> {
+        repay_handler(ctx)
     }
 }

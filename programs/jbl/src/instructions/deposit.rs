@@ -1,4 +1,4 @@
-use crate::state::{DepositReceipt, LendingAccount};
+use crate::state::{LendingAccount, UserPosition};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
@@ -37,17 +37,17 @@ pub struct Deposit<'info> {
     )]
     pub lending_vault: Account<'info, TokenAccount>,
 
-    /// PDA receipt that records pending deposits.
+    /// PDA that records the user's deposit and pending LP tokens.
     /// Created on first deposit; subsequent deposits accumulate into it.
-    /// The user can later call `take_lp` to claim LP tokens, or use this receipt as collateral.
+    /// The user can later call `take_lp` to claim LP tokens, or use this as collateral.
     #[account(
         init_if_needed,
         payer = authority,
-        space = 8 + DepositReceipt::INIT_SPACE,
-        seeds = [b"deposit_receipt", lending_account.key().as_ref(), authority.key().as_ref()],
+        space = 8 + UserPosition::INIT_SPACE,
+        seeds = [b"user_position", lending_account.key().as_ref(), authority.key().as_ref()],
         bump,
     )]
-    pub deposit_receipt: Account<'info, DepositReceipt>,
+    pub user_position: Account<'info, UserPosition>,
 
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
@@ -99,16 +99,16 @@ pub fn deposit_handler(ctx: Context<Deposit>, amount: u64) -> Result<()> {
 
     lending_account.last_update_slot = Clock::get()?.slot;
 
-    // Initialise or accumulate into the deposit receipt PDA
-    let receipt = &mut ctx.accounts.deposit_receipt;
+    // Initialize or accumulate into the user position PDA
+    let receipt = &mut ctx.accounts.user_position;
     if receipt.authority == Pubkey::default() {
-        // First deposit: initialise all fields
+        // First deposit: initialize all fields
         receipt.authority = ctx.accounts.authority.key();
         receipt.lending_account = ctx.accounts.lending_account.key();
         receipt.deposited_amount = amount;
         receipt.lp_tokens_owed = lp_tokens_owed;
         receipt.deposited_at_slot = Clock::get()?.slot;
-        receipt.bump = ctx.bumps.deposit_receipt;
+        receipt.bump = ctx.bumps.user_position;
     } else {
         // Subsequent deposit: accumulate
         receipt.deposited_amount = receipt

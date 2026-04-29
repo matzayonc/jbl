@@ -38,6 +38,7 @@ export function useLendingAccounts(): UseLendingAccountsResult {
                             lastUpdateSlot: BigInt(account.lastUpdateSlot.toString()),
                             bump: account.bump,
                             lpMintBump: account.lpMintBump,
+                            borrowFeeBps: account.borrowFeeBps,
                         })),
                     )
                 }

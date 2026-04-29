@@ -20,6 +20,7 @@ export function LendingInfoCard() {
     const [amount, setAmount] = useState('')
     const [isSupplying, setIsSupplying] = useState(false)
     const [isBorrowing, setIsBorrowing] = useState(false)
+    const [isRepaying, setIsRepaying] = useState(false)
     const [txError, setTxError] = useState<string | null>(null)
 
     const userPublicKey = useMemo(
@@ -64,11 +65,20 @@ export function LendingInfoCard() {
 
         const utilizationRate = totalSupply > 0 ? (totalBorrowed / totalSupply) * 100 : 0
 
+        // Derive APYs from on-chain borrow_fee_bps
+        // borrowApy: annualized rate = fee_bps / 100 (e.g. 50 bps = 0.5%)
+        // supplyApy: lenders earn borrowApy scaled by utilization
+        const avgFeeBps = accounts.length > 0
+            ? accounts.reduce((sum, acc) => sum + acc.borrowFeeBps, 0) / accounts.length
+            : 0
+        const borrowApy = avgFeeBps / 100
+        const supplyApy = borrowApy * (utilizationRate / 100)
+
         return {
             totalSupply,
             totalBorrowed,
-            supplyApy: 5.2, // TODO: derive from program
-            borrowApy: 8.4, // TODO: derive from program
+            supplyApy,
+            borrowApy,
             utilizationRate,
             availableLiquidity: totalSupply - totalBorrowed,
             userDeposits,
@@ -114,6 +124,23 @@ export function LendingInfoCard() {
         }
     }
 
+    async function handleRepay() {
+        if (!program || !userAccount || !userPublicKey) return
+        setIsRepaying(true)
+        setTxError(null)
+        try {
+            const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const tx = await program.methods.repay().accounts({ mint: userAccount.mint, userTokenAccount } as any).rpc()
+            console.log('Repay tx:', tx)
+            refetch()
+        } catch (err) {
+            setTxError(err instanceof Error ? err.message : String(err))
+        } finally {
+            setIsRepaying(false)
+        }
+    }
+
     if (loading) {
         return (
             <div className="w-full max-w-2xl p-12 flex justify-center items-center text-muted-foreground font-medium animate-pulse">
@@ -156,8 +183,10 @@ export function LendingInfoCard() {
                         onAmountChange={setAmount}
                         onSupply={handleSupply}
                         onBorrow={handleBorrow}
+                        onRepay={handleRepay}
                         isSupplying={isSupplying}
                         isBorrowing={isBorrowing}
+                        isRepaying={isRepaying}
                         error={txError}
                     />
                 ) : (

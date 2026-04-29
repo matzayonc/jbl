@@ -41,6 +41,7 @@ export function useLendingAccount(
                         lastUpdateSlot: BigInt(data.lastUpdateSlot.toString()),
                         bump: data.bump,
                         lpMintBump: data.lpMintBump,
+                        borrowFeeBps: data.borrowFeeBps,
                     })
                 }
             } catch (err) {

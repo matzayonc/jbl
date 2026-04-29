@@ -10,4 +10,8 @@ pub enum ErrorCode {
     MathOverflow,
     #[msg("Insufficient funds")]
     InsufficientFunds,
+    #[msg("An open borrow position already exists; repay before borrowing again")]
+    AlreadyBorrowed,
+    #[msg("No open borrow to repay")]
+    NoBorrowFound,
 }

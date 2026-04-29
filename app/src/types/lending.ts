@@ -11,4 +11,5 @@ export interface LendingAccountData {
     lastUpdateSlot: bigint
     bump: number
     lpMintBump: number
+    borrowFeeBps: number
 }

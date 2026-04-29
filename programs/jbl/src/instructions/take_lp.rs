@@ -1,4 +1,4 @@
-use crate::state::{DepositReceipt, LendingAccount};
+use crate::state::{UserPosition, LendingAccount};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, MintTo, Token, TokenAccount};
 
@@ -29,17 +29,17 @@ pub struct TakeLp<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
 
-    /// The deposit receipt to consume
+    /// The user position to consume when claiming LP tokens
     #[account(
         mut,
-        seeds = [b"deposit_receipt", lending_account.key().as_ref(), authority.key().as_ref()],
-        bump = deposit_receipt.bump,
+        seeds = [b"user_position", lending_account.key().as_ref(), authority.key().as_ref()],
+        bump = user_position.bump,
         has_one = authority,
-        constraint = deposit_receipt.lending_account == lending_account.key()
+        constraint = user_position.lending_account == lending_account.key()
             @ crate::error::ErrorCode::InvalidAmount,
         close = authority,
     )]
-    pub deposit_receipt: Account<'info, DepositReceipt>,
+    pub user_position: Account<'info, UserPosition>,
 
     /// The user's LP token account (destination)
     #[account(
@@ -53,7 +53,7 @@ pub struct TakeLp<'info> {
 }
 
 pub fn take_lp_handler(ctx: Context<TakeLp>) -> Result<()> {
-    let lp_tokens_to_mint = ctx.accounts.deposit_receipt.lp_tokens_owed;
+    let lp_tokens_to_mint = ctx.accounts.user_position.lp_tokens_owed;
 
     require!(
         lp_tokens_to_mint > 0,
@@ -89,7 +89,7 @@ pub fn take_lp_handler(ctx: Context<TakeLp>) -> Result<()> {
     msg!(
         "Claimed {} LP tokens from deposit receipt. Deposited amount was {}.",
         lp_tokens_to_mint,
-        ctx.accounts.deposit_receipt.deposited_amount,
+        ctx.accounts.user_position.deposited_amount,
     );
 
     Ok(())

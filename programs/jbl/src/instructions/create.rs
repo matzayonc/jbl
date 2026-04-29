@@ -3,7 +3,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
 #[derive(Accounts)]
-pub struct CreateLendingAccount<'info> {
+pub struct Create<'info> {
     #[account(
         init,
         payer = payer,
@@ -49,7 +49,7 @@ pub struct CreateLendingAccount<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn create_lending_account_handler(ctx: Context<CreateLendingAccount>, borrow_fee_bps: u32) -> Result<()> {
+pub fn create_handler(ctx: Context<Create>, borrow_fee_bps: u32) -> Result<()> {
     let lending_account = &mut ctx.accounts.lending_account;
     let authority = &ctx.accounts.authority;
     let mint = &ctx.accounts.mint;

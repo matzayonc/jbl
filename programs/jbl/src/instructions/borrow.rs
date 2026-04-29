@@ -1,4 +1,4 @@
-use crate::state::{DepositReceipt, LendingAccount};
+use crate::state::{UserPosition, LendingAccount};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{Mint, Token, TokenAccount};
@@ -39,15 +39,19 @@ pub struct Borrow<'info> {
     )]
     pub lending_vault: Account<'info, TokenAccount>,
 
-    /// The user's deposit receipt — used as collateral for this borrow
+    /// The user's position — holds deposit collateral and active borrow fields.
+    /// Must already exist (user must have deposited first).
     #[account(
-        seeds = [b"deposit_receipt", lending_account.key().as_ref(), authority.key().as_ref()],
-        bump = deposit_receipt.bump,
+        mut,
+        seeds = [b"user_position", lending_account.key().as_ref(), authority.key().as_ref()],
+        bump = user_position.bump,
         has_one = authority,
-        constraint = deposit_receipt.lending_account == lending_account.key()
+        constraint = user_position.lending_account == lending_account.key()
             @ crate::error::ErrorCode::InvalidAmount,
+        constraint = user_position.deposited_amount > 0
+            @ crate::error::ErrorCode::InsufficientFunds,
     )]
-    pub deposit_receipt: Account<'info, DepositReceipt>,
+    pub user_position: Account<'info, UserPosition>,
 
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
@@ -55,7 +59,7 @@ pub struct Borrow<'info> {
 }
 
 pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
-    let lending_account = &mut ctx.accounts.lending_account;
+    let lending_account = &ctx.accounts.lending_account;
 
     require!(amount > 0, crate::error::ErrorCode::InvalidAmount);
 
@@ -65,10 +69,10 @@ pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
         crate::error::ErrorCode::InsufficientFunds
     );
 
-    // Calculate max borrowable amount based on user's deposited collateral (not pool total)
+    // Calculate max borrowable amount based on user's deposited collateral
     let max_borrowable = ctx
         .accounts
-        .deposit_receipt
+        .user_position
         .deposited_amount
         .checked_mul(lending_account.ltv_percent as u64)
         .ok_or(crate::error::ErrorCode::MathOverflow)?
@@ -84,13 +88,22 @@ pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
         crate::error::ErrorCode::InsufficientFunds
     );
 
-    // Extract bump and key before mutable borrows
-    let lending_account_bump = lending_account.bump;
+    let current_slot = Clock::get()?.slot;
+    let current_ts = Clock::get()?.unix_timestamp;
+    let interest_rate_bps = lending_account.borrow_fee_bps; // u32
+
+    // Record the open borrow position in the user's position account
+    let user_position = &mut ctx.accounts.user_position;
+    user_position.principal = amount;
+    user_position.interest_rate_bps = interest_rate_bps;
+    user_position.borrowed_at_ts = current_ts;
+
+    // Extract seeds before mutable borrow of lending_account
+    let lending_account_bump = ctx.accounts.lending_account.bump;
     let authority_key = ctx.accounts.authority.key();
     let mint_key = ctx.accounts.mint.key();
-    let _ = lending_account;
 
-    // Transfer SPL tokens from lending vault to user
+    // Transfer the full principal to the user (interest is charged at repayment)
     let seeds = &[
         b"lending" as &[u8],
         authority_key.as_ref(),
@@ -119,14 +132,14 @@ pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
         .total_borrowed
         .checked_add(amount)
         .ok_or(crate::error::ErrorCode::MathOverflow)?;
-
-    lending_account.last_update_slot = Clock::get()?.slot;
+    lending_account.last_update_slot = current_slot;
 
     msg!(
-        "Borrowed {} tokens. Total borrowed: {}, Available to borrow: {}",
+        "Borrowed {} tokens at {} bps/year. Interest accrues from unix ts {}. Total borrowed: {}",
         amount,
+        interest_rate_bps,
+        current_ts,
         lending_account.total_borrowed,
-        available_to_borrow.checked_sub(amount).unwrap_or(0)
     );
 
     Ok(())

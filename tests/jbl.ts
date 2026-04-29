@@ -97,7 +97,7 @@ describe("jbl", () => {
     it("Creates a lending account with LP token mint successfully", async () => {
       // Execute the create_lending_account instruction
       const txSignature = await program.methods
-        .createLendingAccount()
+        .create(50)
         .accounts({
           mint: mint,
           authority: authority.publicKey,
@@ -132,7 +132,7 @@ describe("jbl", () => {
     it("Tests LP token ratio calculation on deposit", async () => {
       // First create the lending account
       await program.methods
-        .createLendingAccount()
+        .create(50)
         .accounts({
           mint: mint,
           authority: authority.publicKey,
@@ -227,7 +227,7 @@ describe("jbl", () => {
     it("Tests borrowing against deposited funds", async () => {
       // First create the lending account
       await program.methods
-        .createLendingAccount()
+        .create(50)
         .accounts({
           mint: mint,
           authority: authority.publicKey,

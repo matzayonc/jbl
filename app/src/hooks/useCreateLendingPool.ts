@@ -56,7 +56,7 @@ export function useCreateLendingPool(onCreated: () => void): UseCreateLendingPoo
             // Step 2: create the lending account PDA
             const { blockhash: bh2, lastValidBlockHeight: lv2 } = await connection.getLatestBlockhash()
             const lendingTx = await readonlyProgram.methods
-                .createLendingAccount()
+                .create(50) // 50 bps = 0.5% fee
                 .accounts({ mint: mintKeypair.publicKey, authority: payer, payer })
                 .transaction()
 

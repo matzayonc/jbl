@@ -3,8 +3,10 @@ interface Props {
     onAmountChange: (value: string) => void
     onSupply: () => void
     onBorrow: () => void
+    onRepay: () => void
     isSupplying: boolean
     isBorrowing: boolean
+    isRepaying: boolean
     error: string | null
 }
 
@@ -13,11 +15,13 @@ export function LendingActions({
     onAmountChange,
     onSupply,
     onBorrow,
+    onRepay,
     isSupplying,
     isBorrowing,
+    isRepaying,
     error,
 }: Props) {
-    const busy = isSupplying || isBorrowing
+    const busy = isSupplying || isBorrowing || isRepaying
 
     return (
         <div className="space-y-3 pt-4 border-t">
@@ -45,6 +49,13 @@ export function LendingActions({
                     {isBorrowing ? 'Borrowing…' : 'Borrow'}
                 </button>
             </div>
+            <button
+                onClick={onRepay}
+                disabled={busy}
+                className="w-full rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 transition-colors disabled:opacity-50"
+            >
+                {isRepaying ? 'Repaying…' : 'Repay (principal + accrued interest)'}
+            </button>
             {error && (
                 <p className="text-xs text-red-500 font-mono break-all">{error}</p>
             )}
