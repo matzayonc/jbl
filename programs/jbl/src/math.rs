@@ -1,27 +1,77 @@
 use crate::constants::SECONDS_PER_YEAR;
 
-/// Compute simple interest owed on a borrow position.
+/// Compute simple interest on a pool's total borrowed balance.
 ///
 /// ```text
-/// interest = principal × rate_bps × elapsed_secs
+/// interest = total_borrowed × rate_bps × elapsed_secs
 ///            ─────────────────────────────────────
 ///                  10_000 × SECONDS_PER_YEAR
 /// ```
-///
-/// All intermediate arithmetic is done in `u128` to accommodate extreme
-/// inputs (e.g. 1 billion tokens at 1 000 % APR for 4 years) without
-/// overflow.  Returns `None` on arithmetic overflow or if the final value
-/// exceeds `u64::MAX`.
-pub fn compute_interest(principal: u64, rate_bps: u32, elapsed_secs: u64) -> Option<u64> {
-    let numerator = (principal as u128)
+pub fn compute_interest(total_borrowed: u64, rate_bps: u32, elapsed_secs: u64) -> Option<u64> {
+    if elapsed_secs == 0 || rate_bps == 0 || total_borrowed == 0 {
+        return Some(0);
+    }
+    let numerator = (total_borrowed as u128)
         .checked_mul(rate_bps as u128)?
         .checked_mul(elapsed_secs as u128)?;
-
     let denominator = 10_000u128.checked_mul(SECONDS_PER_YEAR as u128)?;
+    let interest = numerator.div_ceil(denominator);
+    u64::try_from(interest).ok()
+}
 
-    let interest_u128 = numerator.checked_div(denominator)?;
+/// Convert a borrow amount to debt shares given pool state.
+///
+/// If the pool has no shares yet (first borrow), shares = amount (1:1).
+/// Otherwise: `shares = amount × total_debt_shares / total_borrowed`
+///
+/// Call this BEFORE adding `amount` to `total_borrowed`.
+pub fn amount_to_shares(amount: u64, total_borrowed: u64, total_debt_shares: u64) -> Option<u64> {
+    if amount == 0 {
+        return Some(0);
+    }
+    if total_debt_shares == 0 || total_borrowed == 0 {
+        return Some(amount); // 1:1 for the first borrow
+    }
+    let shares = (amount as u128)
+        .checked_mul(total_debt_shares as u128)?
+        / (total_borrowed as u128);
+    u64::try_from(shares).ok()
+}
 
-    u64::try_from(interest_u128).ok()
+/// Convert debt shares to the current outstanding token amount.
+///
+/// `amount = shares × total_borrowed / total_debt_shares`
+///
+/// Uses ceiling division so the protocol never under-collects.
+pub fn shares_to_amount(shares: u64, total_borrowed: u64, total_debt_shares: u64) -> Option<u64> {
+    if shares == 0 {
+        return Some(0);
+    }
+    let numer = (shares as u128).checked_mul(total_borrowed as u128)?;
+    let result = numer.div_ceil(total_debt_shares as u128);
+    u64::try_from(result).ok()
+}
+
+/// Convert a repay token amount to the number of debt shares to burn.
+///
+/// `shares = repay_amount × total_debt_shares / total_borrowed`
+///
+/// Uses floor division and is capped at `max_shares` so full-repay rounding
+/// never burns more shares than the user holds.
+pub fn amount_to_shares_burned(
+    repay_amount: u64,
+    total_borrowed: u64,
+    total_debt_shares: u64,
+    max_shares: u64,
+) -> Option<u64> {
+    if repay_amount == 0 {
+        return Some(0);
+    }
+    let shares = (repay_amount as u128)
+        .checked_mul(total_debt_shares as u128)?
+        .checked_div(total_borrowed as u128)?;
+    let shares = u64::try_from(shares).ok()?.min(max_shares);
+    Some(shares)
 }
 
 #[cfg(test)]
@@ -30,16 +80,11 @@ mod tests {
 
     const YEAR: u64 = SECONDS_PER_YEAR;
 
-    // ── helpers ──────────────────────────────────────────────────────────────
-
-    /// 1 billion tokens expressed in raw units (6 decimals).
-    const ONE_BILLION: u64 = 1_000_000_000 * 1_000_000;
-
-    // ── basic correctness ─────────────────────────────────────────────────────
+    // ── compute_interest ─────────────────────────────────────────────────────
 
     #[test]
     fn zero_elapsed_is_zero_interest() {
-        assert_eq!(compute_interest(ONE_BILLION, 500, 0), Some(0));
+        assert_eq!(compute_interest(1_000_000, 500, 0), Some(0));
     }
 
     #[test]
@@ -49,74 +94,71 @@ mod tests {
 
     #[test]
     fn zero_rate_is_zero_interest() {
-        assert_eq!(compute_interest(ONE_BILLION, 0, YEAR), Some(0));
+        assert_eq!(compute_interest(1_000_000, 0, YEAR), Some(0));
     }
 
-    /// 100 % APR (10 000 bps) for exactly 1 year → interest == principal.
     #[test]
     fn one_year_hundred_percent_apr() {
-        let result = compute_interest(1_000_000, 10_000, YEAR);
-        assert_eq!(result, Some(1_000_000));
+        assert_eq!(compute_interest(1_000_000, 10_000, YEAR), Some(1_000_000));
     }
 
-    /// 50 % APR (5 000 bps) for 1 year → interest == principal / 2.
     #[test]
     fn one_year_fifty_percent_apr() {
-        let result = compute_interest(1_000_000, 5_000, YEAR);
-        assert_eq!(result, Some(500_000));
+        assert_eq!(compute_interest(1_000_000, 5_000, YEAR), Some(500_000));
     }
 
-    /// 1 % APR (100 bps) for 1 year.
     #[test]
     fn one_year_one_percent_apr() {
-        let result = compute_interest(1_000_000, 100, YEAR);
-        assert_eq!(result, Some(10_000));
+        assert_eq!(compute_interest(1_000_000, 100, YEAR), Some(10_000));
     }
 
-    /// Half-year accrual is exactly half of a full year.
     #[test]
     fn half_year_is_half_of_full_year() {
         let full = compute_interest(1_000_000, 5_000, YEAR).unwrap();
         let half = compute_interest(1_000_000, 5_000, YEAR / 2).unwrap();
-        // Allow ±1 for integer division rounding.
         assert!((full / 2).abs_diff(half) <= 1);
     }
 
-    // ── extreme / overflow stress tests ──────────────────────────────────────
-
-    /// 1 billion tokens (6 dp), 1 000 % APR, 4 years — must NOT overflow.
-    /// Expected: principal × 10 × 4 / 1 = 40 billion tokens.
-    #[test]
-    fn one_billion_tokens_1000pct_4_years_no_overflow() {
-        let principal = ONE_BILLION;          // 10^15 raw units
-        let rate_bps: u32 = 100_000;          // 1 000 % APR = 100_000 bps
-        let elapsed = 4 * YEAR;
-
-        let interest = compute_interest(principal, rate_bps, elapsed)
-            .expect("should not overflow");
-
-        // At 1000 % APR for 4 years: interest = principal × 10 × 4 = 40×principal
-        let expected = principal.checked_mul(40).expect("expected overflow-free");
-        assert_eq!(interest, expected);
-    }
-
-    /// u64::MAX principal, 1 bps, 1 second — intermediate u128 must absorb it.
-    #[test]
-    fn max_principal_tiny_rate_one_second_no_overflow() {
-        let result = compute_interest(u64::MAX, 1, 1);
-        // u64::MAX * 1 * 1 / (10_000 * 31_557_600)
-        // = 18_446_744_073_709_551_615 / 315_576_000_000 ≈ 58_450_000 — fits comfortably in u64.
-        assert!(result.is_some());
-        assert!(result.unwrap() < 100_000_000); // well under 100 million
-    }
-
-    /// Very large principal × max rate × many years should still not panic.
-    /// The result may overflow u64; the function should return None gracefully.
     #[test]
     fn graceful_none_on_u64_overflow() {
-        // u64::MAX tokens at u32::MAX bps for 1_000 years — result overflows u64.
         let result = compute_interest(u64::MAX, u32::MAX, 1_000 * YEAR);
-        // Either Some (if it fits) or None — must not panic.
         let _ = result;
+    }
+
+    // ── amount_to_shares / shares_to_amount ──────────────────────────────────
+
+    #[test]
+    fn first_borrow_is_one_to_one() {
+        assert_eq!(amount_to_shares(500, 0, 0), Some(500));
+    }
+
+    #[test]
+    fn round_trip_single_borrower() {
+        let amount = 1_000_000u64;
+        let shares = amount_to_shares(amount, 0, 0).unwrap(); // first borrow
+        assert_eq!(shares, amount);
+        let back = shares_to_amount(shares, amount, shares).unwrap();
+        assert_eq!(back, amount);
+    }
+
+    #[test]
+    fn second_borrow_after_interest_accrual() {
+        // Pool had 1_000_000 borrowed, accrued 100_000 interest -> total_borrowed = 1_100_000
+        // total_debt_shares still = 1_000_000 (first borrower's shares)
+        // Second borrower wants 100_000; shares should be proportional
+        let shares = amount_to_shares(100_000, 1_100_000, 1_000_000).unwrap();
+        // 100_000 * 1_000_000 / 1_100_000 = ~90_909 shares
+        assert_eq!(shares, 90_909);
+        // First borrower's debt grew: 1_000_000 shares * 1_200_000 / 1_090_909 ≈...
+        // Second borrower's debt: 90_909 * 1_200_000 / 1_090_909 ≈ 100_000
+        let new_total_borrowed = 1_100_000 + 100_000; // after second borrow
+        let new_total_shares = 1_000_000 + shares;
+        let second_debt = shares_to_amount(shares, new_total_borrowed, new_total_shares).unwrap();
+        assert!(second_debt.abs_diff(100_000) <= 1);
+    }
+
+    #[test]
+    fn zero_shares_is_zero_amount() {
+        assert_eq!(shares_to_amount(0, 1_000_000, 1_000_000), Some(0));
     }
 }

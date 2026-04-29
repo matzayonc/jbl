@@ -1,4 +1,4 @@
-use crate::state::{UserPosition, LendingAccount};
+use crate::state::{Pool, UserPosition};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, MintTo, Token, TokenAccount};
 
@@ -7,21 +7,21 @@ pub struct TakeLp<'info> {
     #[account(
         mut,
         seeds = [b"lending", authority.key().as_ref(), mint.key().as_ref()],
-        bump = lending_account.bump,
+        bump = pool.bump,
         has_one = authority,
         has_one = mint,
         has_one = lp_mint,
     )]
-    pub lending_account: Account<'info, LendingAccount>,
+    pub pool: Account<'info, Pool>,
 
-    /// The mint of the underlying token (needed for lending_account seeds)
+    /// The mint of the underlying token (needed for pool seeds)
     pub mint: Account<'info, Mint>,
 
     /// The LP token mint for this lending pool
     #[account(
         mut,
-        seeds = [b"lp_mint", lending_account.key().as_ref()],
-        bump = lending_account.lp_mint_bump,
+        seeds = [b"lp_mint", pool.key().as_ref()],
+        bump = pool.lp_mint_bump,
     )]
     pub lp_mint: Account<'info, Mint>,
 
@@ -32,10 +32,10 @@ pub struct TakeLp<'info> {
     /// The user position to consume when claiming LP tokens
     #[account(
         mut,
-        seeds = [b"user_position", lending_account.key().as_ref(), authority.key().as_ref()],
+        seeds = [b"user_position", pool.key().as_ref(), authority.key().as_ref()],
         bump = user_position.bump,
         has_one = authority,
-        constraint = user_position.lending_account == lending_account.key()
+        constraint = user_position.pool == pool.key()
             @ crate::error::ErrorCode::InvalidAmount,
         close = authority,
     )]
@@ -52,30 +52,31 @@ pub struct TakeLp<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-pub fn take_lp_handler(ctx: Context<TakeLp>) -> Result<()> {
-    let lp_tokens_to_mint = ctx.accounts.user_position.lp_tokens_owed;
-
+pub fn take_lp_handler(ctx: Context<TakeLp>, amount: u64) -> Result<()> {
+    require!(amount > 0, crate::error::ErrorCode::InvalidAmount);
     require!(
-        lp_tokens_to_mint > 0,
+        amount <= ctx.accounts.user_position.lp_tokens_owed,
         crate::error::ErrorCode::InvalidAmount
     );
 
-    // The lending_account PDA is the mint authority for lp_mint
+    let lp_tokens_to_mint = amount;
+
+    // The pool PDA is the mint authority for lp_mint
     let authority_key = ctx.accounts.authority.key();
     let mint_key = ctx.accounts.mint.key();
-    let lending_account_bump = ctx.accounts.lending_account.bump;
+    let pool_bump = ctx.accounts.pool.bump;
     let seeds = &[
         b"lending" as &[u8],
         authority_key.as_ref(),
         mint_key.as_ref(),
-        &[lending_account_bump],
+        &[pool_bump],
     ];
     let signer = &[&seeds[..]];
 
     let mint_accounts = MintTo {
         mint: ctx.accounts.lp_mint.to_account_info(),
         to: ctx.accounts.user_lp_token_account.to_account_info(),
-        authority: ctx.accounts.lending_account.to_account_info(),
+        authority: ctx.accounts.pool.to_account_info(),
     };
     anchor_spl::token::mint_to(
         CpiContext::new_with_signer(
@@ -86,10 +87,17 @@ pub fn take_lp_handler(ctx: Context<TakeLp>) -> Result<()> {
         lp_tokens_to_mint,
     )?;
 
+    ctx.accounts.user_position.lp_tokens_owed = ctx
+        .accounts
+        .user_position
+        .lp_tokens_owed
+        .checked_sub(lp_tokens_to_mint)
+        .ok_or(crate::error::ErrorCode::MathOverflow)?;
+
     msg!(
-        "Claimed {} LP tokens from deposit receipt. Deposited amount was {}.",
+        "Claimed {} LP tokens. Remaining owed: {}.",
         lp_tokens_to_mint,
-        ctx.accounts.user_position.deposited_amount,
+        ctx.accounts.user_position.lp_tokens_owed,
     );
 
     Ok(())

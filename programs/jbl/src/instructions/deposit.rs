@@ -1,4 +1,4 @@
-use crate::state::{LendingAccount, UserPosition};
+use crate::state::{Pool, UserPosition};
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
@@ -7,11 +7,11 @@ pub struct Deposit<'info> {
     #[account(
         mut,
         seeds = [b"lending", authority.key().as_ref(), mint.key().as_ref()],
-        bump = lending_account.bump,
+        bump = pool.bump,
         has_one = authority,
         has_one = mint,
     )]
-    pub lending_account: Account<'info, LendingAccount>,
+    pub pool: Account<'info, Pool>,
 
     /// The mint of the token being deposited
     pub mint: Account<'info, Mint>,
@@ -31,11 +31,11 @@ pub struct Deposit<'info> {
     /// The lending account's token account (destination)
     #[account(
         mut,
-        seeds = [b"lending_vault", lending_account.key().as_ref()],
+        seeds = [b"pool", pool.key().as_ref()],
         bump,
-        constraint = lending_vault.mint == mint.key(),
+        constraint = pool.mint == mint.key(),
     )]
-    pub lending_vault: Account<'info, TokenAccount>,
+    pub vault: Account<'info, TokenAccount>,
 
     /// PDA that records the user's deposit and pending LP tokens.
     /// Created on first deposit; subsequent deposits accumulate into it.
@@ -44,7 +44,7 @@ pub struct Deposit<'info> {
         init_if_needed,
         payer = authority,
         space = 8 + UserPosition::INIT_SPACE,
-        seeds = [b"user_position", lending_account.key().as_ref(), authority.key().as_ref()],
+        seeds = [b"user_position", pool.key().as_ref(), authority.key().as_ref()],
         bump,
     )]
     pub user_position: Account<'info, UserPosition>,
@@ -54,19 +54,19 @@ pub struct Deposit<'info> {
 }
 
 pub fn deposit_handler(ctx: Context<Deposit>, amount: u64) -> Result<()> {
-    let lending_account = &mut ctx.accounts.lending_account;
+    let pool = &mut ctx.accounts.pool;
 
     require!(amount > 0, crate::error::ErrorCode::InvalidAmount);
 
     // Pre-calculate LP tokens owed and lock them in at the current pool ratio.
     // First deposit: 1:1; subsequent: proportional to pool share.
-    let lp_tokens_owed = if lending_account.total_deposited == 0 {
+    let lp_tokens_owed = if pool.total_deposited == 0 {
         amount
     } else {
         amount
-            .checked_mul(lending_account.total_lp_issued)
+            .checked_mul(pool.total_lp_issued)
             .ok_or(crate::error::ErrorCode::MathOverflow)?
-            .checked_div(lending_account.total_deposited)
+            .checked_div(pool.total_deposited)
             .ok_or(crate::error::ErrorCode::MathOverflow)?
     };
 
@@ -75,7 +75,7 @@ pub fn deposit_handler(ctx: Context<Deposit>, amount: u64) -> Result<()> {
     // Transfer SPL tokens from user to lending vault
     let transfer_accounts = anchor_spl::token::Transfer {
         from: ctx.accounts.user_token_account.to_account_info(),
-        to: ctx.accounts.lending_vault.to_account_info(),
+        to: ctx.accounts.vault.to_account_info(),
         authority: ctx.accounts.authority.to_account_info(),
     };
     anchor_spl::token::transfer(
@@ -87,35 +87,33 @@ pub fn deposit_handler(ctx: Context<Deposit>, amount: u64) -> Result<()> {
     )?;
 
     // Update lending account state (reserve total_lp_issued so future ratios stay consistent)
-    lending_account.total_deposited = lending_account
+    pool.total_deposited = pool
         .total_deposited
         .checked_add(amount)
         .ok_or(crate::error::ErrorCode::MathOverflow)?;
 
-    lending_account.total_lp_issued = lending_account
+    pool.total_lp_issued = pool
         .total_lp_issued
         .checked_add(lp_tokens_owed)
         .ok_or(crate::error::ErrorCode::MathOverflow)?;
 
-    lending_account.last_update_slot = Clock::get()?.slot;
-
     // Initialize or accumulate into the user position PDA
-    let receipt = &mut ctx.accounts.user_position;
-    if receipt.authority == Pubkey::default() {
+    let position = &mut ctx.accounts.user_position;
+    if position.authority == Pubkey::default() {
         // First deposit: initialize all fields
-        receipt.authority = ctx.accounts.authority.key();
-        receipt.lending_account = ctx.accounts.lending_account.key();
-        receipt.deposited_amount = amount;
-        receipt.lp_tokens_owed = lp_tokens_owed;
-        receipt.deposited_at_slot = Clock::get()?.slot;
-        receipt.bump = ctx.bumps.user_position;
+        position.authority = ctx.accounts.authority.key();
+        position.pool = ctx.accounts.pool.key();
+        position.deposited_amount = amount;
+        position.lp_tokens_owed = lp_tokens_owed;
+        position.deposited_at_slot = Clock::get()?.slot;
+        position.bump = ctx.bumps.user_position;
     } else {
         // Subsequent deposit: accumulate
-        receipt.deposited_amount = receipt
+        position.deposited_amount = position
             .deposited_amount
             .checked_add(amount)
             .ok_or(crate::error::ErrorCode::MathOverflow)?;
-        receipt.lp_tokens_owed = receipt
+        position.lp_tokens_owed = position
             .lp_tokens_owed
             .checked_add(lp_tokens_owed)
             .ok_or(crate::error::ErrorCode::MathOverflow)?;
@@ -125,8 +123,8 @@ pub fn deposit_handler(ctx: Context<Deposit>, amount: u64) -> Result<()> {
         "Deposited {} tokens. LP tokens owed: {}. Total deposited: {}, Total LP issued: {}",
         amount,
         lp_tokens_owed,
-        ctx.accounts.lending_account.total_deposited,
-        ctx.accounts.lending_account.total_lp_issued,
+        ctx.accounts.pool.total_deposited,
+        ctx.accounts.pool.total_lp_issued,
     );
 
     Ok(())

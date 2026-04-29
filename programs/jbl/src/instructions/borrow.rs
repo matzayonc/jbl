@@ -1,4 +1,5 @@
-use crate::state::{UserPosition, LendingAccount};
+use crate::math::{amount_to_shares, shares_to_amount};
+use crate::state::{Pool, UserPosition};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{Mint, Token, TokenAccount};
@@ -8,11 +9,11 @@ pub struct Borrow<'info> {
     #[account(
         mut,
         seeds = [b"lending", authority.key().as_ref(), mint.key().as_ref()],
-        bump = lending_account.bump,
+        bump = pool.bump,
         has_one = authority,
         has_one = mint,
     )]
-    pub lending_account: Account<'info, LendingAccount>,
+    pub pool: Account<'info, Pool>,
 
     /// The mint of the token being borrowed
     pub mint: Account<'info, Mint>,
@@ -33,20 +34,20 @@ pub struct Borrow<'info> {
     /// The lending account's token account (source)
     #[account(
         mut,
-        seeds = [b"lending_vault", lending_account.key().as_ref()],
+        seeds = [b"pool", pool.key().as_ref()],
         bump,
-        constraint = lending_vault.mint == mint.key(),
+        constraint = vault.mint == mint.key(),
     )]
-    pub lending_vault: Account<'info, TokenAccount>,
+    pub vault: Account<'info, TokenAccount>,
 
     /// The user's position — holds deposit collateral and active borrow fields.
     /// Must already exist (user must have deposited first).
     #[account(
         mut,
-        seeds = [b"user_position", lending_account.key().as_ref(), authority.key().as_ref()],
+        seeds = [b"user_position", pool.key().as_ref(), authority.key().as_ref()],
         bump = user_position.bump,
         has_one = authority,
-        constraint = user_position.lending_account == lending_account.key()
+        constraint = user_position.pool == pool.key()
             @ crate::error::ErrorCode::InvalidAmount,
         constraint = user_position.deposited_amount > 0
             @ crate::error::ErrorCode::InsufficientFunds,
@@ -59,28 +60,40 @@ pub struct Borrow<'info> {
 }
 
 pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
-    let lending_account = &ctx.accounts.lending_account;
-
     require!(amount > 0, crate::error::ErrorCode::InvalidAmount);
 
-    // Check if there are sufficient funds in the vault
     require!(
-        ctx.accounts.lending_vault.amount >= amount,
+        ctx.accounts.vault.amount >= amount,
         crate::error::ErrorCode::InsufficientFunds
     );
 
-    // Calculate max borrowable amount based on user's deposited collateral
+    // ── 1. Accrue interest on the pool ────────────────────────────────────────
+    let current_ts = Clock::get()?.unix_timestamp;
+    ctx.accounts.pool.accrue_interest(current_ts)?;
+
+    // ── 2. LTV check against user's current debt ──────────────────────────────
+    let pool = &ctx.accounts.pool;
     let max_borrowable = ctx
         .accounts
         .user_position
         .deposited_amount
-        .checked_mul(lending_account.ltv_percent as u64)
+        .checked_mul(pool.ltv_percent as u64)
         .ok_or(crate::error::ErrorCode::MathOverflow)?
         .checked_div(100)
         .ok_or(crate::error::ErrorCode::MathOverflow)?;
 
+    let current_debt = if pool.total_debt_shares > 0 {
+        shares_to_amount(
+            ctx.accounts.user_position.debt_shares,
+            pool.total_borrowed,
+            pool.total_debt_shares,
+        ).ok_or(crate::error::ErrorCode::MathOverflow)?
+    } else {
+        0
+    };
+
     let available_to_borrow = max_borrowable
-        .checked_sub(lending_account.total_borrowed)
+        .checked_sub(current_debt)
         .ok_or(crate::error::ErrorCode::InsufficientFunds)?;
 
     require!(
@@ -88,34 +101,36 @@ pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
         crate::error::ErrorCode::InsufficientFunds
     );
 
-    let current_slot = Clock::get()?.slot;
-    let current_ts = Clock::get()?.unix_timestamp;
-    let interest_rate_bps = lending_account.borrow_fee_bps; // u32
+    // ── 3. Issue shares (before adding amount to total_borrowed) ──────────────
+    let new_shares = amount_to_shares(amount, pool.total_borrowed, pool.total_debt_shares)
+        .ok_or(crate::error::ErrorCode::MathOverflow)?;
+    require!(new_shares > 0, crate::error::ErrorCode::InvalidAmount);
 
-    // Record the open borrow position in the user's position account
-    let user_position = &mut ctx.accounts.user_position;
-    user_position.principal = amount;
-    user_position.interest_rate_bps = interest_rate_bps;
-    user_position.borrowed_at_ts = current_ts;
+    ctx.accounts.user_position.debt_shares = ctx
+        .accounts
+        .user_position
+        .debt_shares
+        .checked_add(new_shares)
+        .ok_or(crate::error::ErrorCode::MathOverflow)?;
 
-    // Extract seeds before mutable borrow of lending_account
-    let lending_account_bump = ctx.accounts.lending_account.bump;
+    // ── 4. Extract signer seeds before mutating pool ──────────────────────────
+    let pool_bump = ctx.accounts.pool.bump;
     let authority_key = ctx.accounts.authority.key();
     let mint_key = ctx.accounts.mint.key();
 
-    // Transfer the full principal to the user (interest is charged at repayment)
+    // ── 5. Transfer tokens to the user ────────────────────────────────────────
     let seeds = &[
         b"lending" as &[u8],
         authority_key.as_ref(),
         mint_key.as_ref(),
-        &[lending_account_bump],
+        &[pool_bump],
     ];
     let signer = &[&seeds[..]];
 
     let transfer_accounts = anchor_spl::token::Transfer {
-        from: ctx.accounts.lending_vault.to_account_info(),
+        from: ctx.accounts.vault.to_account_info(),
         to: ctx.accounts.user_token_account.to_account_info(),
-        authority: ctx.accounts.lending_account.to_account_info(),
+        authority: ctx.accounts.pool.to_account_info(),
     };
     anchor_spl::token::transfer(
         CpiContext::new_with_signer(
@@ -126,20 +141,21 @@ pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
         amount,
     )?;
 
-    // Update lending account state
-    let lending_account = &mut ctx.accounts.lending_account;
-    lending_account.total_borrowed = lending_account
-        .total_borrowed
+    // ── 6. Update pool state ──────────────────────────────────────────────────
+    let pool = &mut ctx.accounts.pool;
+    pool.total_debt_shares = pool.total_debt_shares
+        .checked_add(new_shares)
+        .ok_or(crate::error::ErrorCode::MathOverflow)?;
+    pool.total_borrowed = pool.total_borrowed
         .checked_add(amount)
         .ok_or(crate::error::ErrorCode::MathOverflow)?;
-    lending_account.last_update_slot = current_slot;
 
     msg!(
-        "Borrowed {} tokens at {} bps/year. Interest accrues from unix ts {}. Total borrowed: {}",
+        "Borrowed {} → {} shares. Pool total_borrowed: {}, total_shares: {}",
         amount,
-        interest_rate_bps,
-        current_ts,
-        lending_account.total_borrowed,
+        new_shares,
+        pool.total_borrowed,
+        pool.total_debt_shares,
     );
 
     Ok(())

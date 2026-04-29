@@ -1,5 +1,5 @@
-use crate::math::compute_interest;
-use crate::state::{UserPosition, LendingAccount};
+use crate::math::{amount_to_shares_burned, shares_to_amount};
+use crate::state::{Pool, UserPosition};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{Mint, Token, TokenAccount};
@@ -9,11 +9,11 @@ pub struct Repay<'info> {
     #[account(
         mut,
         seeds = [b"lending", authority.key().as_ref(), mint.key().as_ref()],
-        bump = lending_account.bump,
+        bump = pool.bump,
         has_one = authority,
         has_one = mint,
     )]
-    pub lending_account: Account<'info, LendingAccount>,
+    pub pool: Account<'info, Pool>,
 
     /// The mint of the token being repaid
     pub mint: Account<'info, Mint>,
@@ -33,21 +33,21 @@ pub struct Repay<'info> {
     /// The lending vault (destination of repayment)
     #[account(
         mut,
-        seeds = [b"lending_vault", lending_account.key().as_ref()],
+        seeds = [b"pool", pool.key().as_ref()],
         bump,
-        constraint = lending_vault.mint == mint.key(),
+        constraint = pool.mint == mint.key(),
     )]
-    pub lending_vault: Account<'info, TokenAccount>,
+    pub vault: Account<'info, TokenAccount>,
 
     /// The user's position — borrow fields are reset on successful repay
     #[account(
         mut,
-        seeds = [b"user_position", lending_account.key().as_ref(), authority.key().as_ref()],
+        seeds = [b"user_position", pool.key().as_ref(), authority.key().as_ref()],
         bump = user_position.bump,
         has_one = authority,
-        constraint = user_position.lending_account == lending_account.key()
+        constraint = user_position.pool == pool.key()
             @ crate::error::ErrorCode::NoBorrowFound,
-        constraint = user_position.principal > 0
+        constraint = user_position.debt_shares > 0
             @ crate::error::ErrorCode::NoBorrowFound,
     )]
     pub user_position: Account<'info, UserPosition>,
@@ -57,30 +57,38 @@ pub struct Repay<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn repay_handler(ctx: Context<Repay>) -> Result<()> {
+pub fn repay_handler(ctx: Context<Repay>, amount: u64) -> Result<()> {
     let current_ts = Clock::get()?.unix_timestamp;
-    let receipt = &ctx.accounts.user_position;
 
-    let principal = receipt.principal;
-    let rate_bps = receipt.interest_rate_bps;
-    let elapsed_secs = (current_ts.saturating_sub(receipt.borrowed_at_ts)).max(0) as u64;
+    // ── 1. Accrue interest on the pool ──────────────────────────────────────────
+    ctx.accounts.pool.accrue_interest(current_ts)?;
 
-    let interest = compute_interest(principal, rate_bps, elapsed_secs)
+    // ── 2. Compute the exact amount owed ──────────────────────────────────────
+    let pool = &ctx.accounts.pool;
+    let debt_shares = ctx.accounts.user_position.debt_shares;
+    let total_due = shares_to_amount(debt_shares, pool.total_borrowed, pool.total_debt_shares)
         .ok_or(crate::error::ErrorCode::MathOverflow)?;
 
-    let total_due = principal
-        .checked_add(interest)
-        .ok_or(crate::error::ErrorCode::MathOverflow)?;
+    let repay_amount = amount.min(total_due);
 
     require!(
-        ctx.accounts.user_token_account.amount >= total_due,
+        ctx.accounts.user_token_account.amount >= repay_amount,
         crate::error::ErrorCode::InsufficientFunds
     );
 
-    // Transfer principal + interest from user back to vault
+    // ── 3. Derive shares burned from repay_amount ────────────────────────────
+    let shares_to_burn = amount_to_shares_burned(
+        repay_amount,
+        pool.total_borrowed,
+        pool.total_debt_shares,
+        debt_shares,
+    )
+    .ok_or(crate::error::ErrorCode::MathOverflow)?;
+
+    // ── 4. Transfer back to the vault ───────────────────────────────────────────
     let transfer_accounts = anchor_spl::token::Transfer {
         from: ctx.accounts.user_token_account.to_account_info(),
-        to: ctx.accounts.lending_vault.to_account_info(),
+        to: ctx.accounts.vault.to_account_info(),
         authority: ctx.accounts.authority.to_account_info(),
     };
     anchor_spl::token::transfer(
@@ -88,31 +96,31 @@ pub fn repay_handler(ctx: Context<Repay>) -> Result<()> {
             *ctx.accounts.token_program.to_account_info().key,
             transfer_accounts,
         ),
-        total_due,
+        repay_amount,
     )?;
 
-    // Update lending account — reduce total_borrowed by principal, interest stays as vault profit
-    let lending_account = &mut ctx.accounts.lending_account;
-    lending_account.total_borrowed = lending_account
-        .total_borrowed
-        .checked_sub(principal)
+    // ── 5. Update pool state ─────────────────────────────────────────────────
+    let pool = &mut ctx.accounts.pool;
+    pool.total_debt_shares = pool
+        .total_debt_shares
+        .checked_sub(shares_to_burn)
         .ok_or(crate::error::ErrorCode::MathOverflow)?;
-    lending_account.last_update_slot = Clock::get()?.slot;
+    pool.total_borrowed = pool
+        .total_borrowed
+        .checked_sub(repay_amount)
+        .ok_or(crate::error::ErrorCode::MathOverflow)?;
 
-    // Reset borrow fields on the position (deposit info is preserved)
-    let user_position = &mut ctx.accounts.user_position;
-    user_position.principal = 0;
-    user_position.interest_rate_bps = 0;
-    user_position.borrowed_at_ts = 0;
+    // ── 6. Update user position ─────────────────────────────────────────────────
+    ctx.accounts.user_position.debt_shares = debt_shares
+        .checked_sub(shares_to_burn)
+        .ok_or(crate::error::ErrorCode::MathOverflow)?;
 
     msg!(
-        "Repaid {} principal + {} interest ({} bps over {} seconds) = {} total. Total borrowed: {}",
-        principal,
-        interest,
-        rate_bps,
-        elapsed_secs,
-        total_due,
-        lending_account.total_borrowed,
+        "Repaid {} tokens ({} shares). Pool total_borrowed: {}, total_shares: {}",
+        repay_amount,
+        shares_to_burn,
+        pool.total_borrowed,
+        pool.total_debt_shares,
     );
 
     Ok(())

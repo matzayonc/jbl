@@ -22,7 +22,7 @@ describe("jbl", () => {
   const program = anchor.workspace.Jbl as Program<Jbl>;
   const connection = provider.connection;
 
-  describe("create_lending_account_with_lp", () => {
+  describe("create_pool_with_lp", () => {
     let authority: Keypair;
     let payer: Keypair;
     let mint: PublicKey;
@@ -66,7 +66,7 @@ describe("jbl", () => {
       );
 
       [lendingVaultPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("lending_vault"), lendingAccountPda.toBuffer()],
+        [Buffer.from("pool"), lendingAccountPda.toBuffer()],
         program.programId
       );
 
@@ -95,7 +95,7 @@ describe("jbl", () => {
     });
 
     it("Creates a lending account with LP token mint successfully", async () => {
-      // Execute the create_lending_account instruction
+      // Execute the create instruction
       const txSignature = await program.methods
         .create(50)
         .accounts({
@@ -110,7 +110,7 @@ describe("jbl", () => {
       await connection.confirmTransaction(txSignature);
 
       // Fetch the created account
-      const lendingAccount = await program.account.lendingAccount.fetch(lendingAccountPda);
+      const lendingAccount = await program.account.pool.fetch(lendingAccountPda);
 
       // Verify the account data
       expect(lendingAccount.authority.toString()).to.equal(authority.publicKey.toString());
@@ -164,7 +164,7 @@ describe("jbl", () => {
 
       // Claim LP tokens
       await program.methods
-        .takeLp()
+        .takeLp(new anchor.BN(depositAmount))
         .accounts({
           mint: mint,
           authority: authority.publicKey,
@@ -174,7 +174,7 @@ describe("jbl", () => {
         .rpc();
 
       // Check the lending account state
-      const lendingAccount = await program.account.lendingAccount.fetch(lendingAccountPda);
+      const lendingAccount = await program.account.pool.fetch(lendingAccountPda);
 
       expect(lendingAccount.totalDeposited.toString()).to.equal(depositAmount.toString());
       expect(lendingAccount.totalLpIssued.toString()).to.equal(depositAmount.toString()); // 1:1 ratio
@@ -203,7 +203,7 @@ describe("jbl", () => {
 
       // Claim LP tokens for second deposit
       await program.methods
-        .takeLp()
+        .takeLp(new anchor.BN(secondDepositAmount))
         .accounts({
           mint: mint,
           authority: authority.publicKey,
@@ -212,7 +212,7 @@ describe("jbl", () => {
         .signers([authority])
         .rpc();
 
-      const updatedLendingAccount = await program.account.lendingAccount.fetch(lendingAccountPda);
+      const updatedLendingAccount = await program.account.pool.fetch(lendingAccountPda);
 
       const expectedTotalLp = depositAmount + secondDepositAmount;
       expect(updatedLendingAccount.totalLpIssued.toString()).to.equal(expectedTotalLp.toString());
@@ -267,7 +267,7 @@ describe("jbl", () => {
         .rpc();
 
       // Check the lending account state after borrow
-      const lendingAccount = await program.account.lendingAccount.fetch(lendingAccountPda);
+      const lendingAccount = await program.account.pool.fetch(lendingAccountPda);
 
       expect(lendingAccount.totalBorrowed.toString()).to.equal(borrowAmount.toString());
 
