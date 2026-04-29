@@ -8,21 +8,8 @@ import {
     ASSOCIATED_TOKEN_PROGRAM_ID,
 } from '@solana/spl-token'
 import { useWalletConnection } from '@solana/react-hooks'
-import { getTransactionDecoder, getTransactionEncoder } from '@solana/transactions'
-import type { WalletSession } from '@solana/client'
 import { connection } from '../lib/program'
-
-const txEncoder = getTransactionEncoder()
-const txDecoder = getTransactionDecoder()
-
-async function signAndSendV1(tx: Transaction, session: WalletSession): Promise<string> {
-    if (!session.signTransaction) throw new Error('Wallet does not support signTransaction.')
-    const wireBytes = tx.serialize({ requireAllSignatures: false })
-    const kitTx = txDecoder.decode(wireBytes) as Parameters<typeof session.signTransaction>[0]
-    const signedKitTx = await session.signTransaction(kitTx)
-    const signedWireBytes = new Uint8Array(txEncoder.encode(signedKitTx))
-    return connection.sendRawTransaction(signedWireBytes, { skipPreflight: false })
-}
+import { signAndSendV1 } from '../lib/transactions'
 
 interface FaucetButtonProps {
     /** The underlying token mint of the lending pool. The connected wallet must be its mint authority. */

@@ -3,6 +3,7 @@
         "bun": true,
         "anchor": true,
         "cargo test": true,
-        "bunx": true
+        "bunx": true,
+        "npx tsc": true
     }
 }
