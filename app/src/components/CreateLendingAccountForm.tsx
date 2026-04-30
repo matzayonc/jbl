@@ -1,5 +1,6 @@
 import { useWalletConnection } from '@solana/react-hooks'
 import { useCreateLendingPool } from '../hooks/useCreateLendingPool'
+import { Button } from './ui/button'
 
 interface Props {
     onCreated: () => void
@@ -26,13 +27,13 @@ export function CreateLendingAccountForm({ onCreated }: Props) {
             {lastMint && (
                 <p className="text-xs text-green-600 font-mono break-all">✓ Mint: {lastMint}</p>
             )}
-            <button
+            <Button
                 onClick={create}
                 disabled={status === 'pending'}
-                className="rounded-md bg-pink-500 px-4 py-2 text-sm font-medium text-white hover:bg-pink-600 disabled:opacity-50 transition-colors"
+                className="bg-pink-500 hover:bg-pink-600 text-white"
             >
                 {status === 'pending' ? 'Creating…' : 'Create Pool'}
-            </button>
+            </Button>
             {status === 'error' && (
                 <p className="text-xs text-red-500 break-all">{errorMsg}</p>
             )}

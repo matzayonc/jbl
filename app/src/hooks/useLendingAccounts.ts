@@ -38,7 +38,12 @@ export function useLendingAccounts(): UseLendingAccountsResult {
                             lastAccrualTs: BigInt(account.lastAccrualTs.toString()),
                             bump: account.bump,
                             lpMintBump: account.lpMintBump,
-                            borrowFeeBps: account.borrowFeeBps,
+                            feeConfig: {
+                                m1: BigInt(account.feeConfig.m1.toString()),
+                                c1: BigInt(account.feeConfig.c1.toString()),
+                                m2: BigInt(account.feeConfig.m2.toString()),
+                                c2: BigInt(account.feeConfig.c2.toString()),
+                            },
                         })),
                     )
                 }

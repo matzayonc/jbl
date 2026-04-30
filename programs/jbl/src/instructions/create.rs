@@ -49,7 +49,13 @@ pub struct Create<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn create_handler(ctx: Context<Create>, borrow_fee_bps: u32) -> Result<()> {
+pub fn create_handler(
+    ctx: Context<Create>,
+    m1: u64,
+    c1: u64,
+    m2: u64,
+    c2: u64,
+) -> Result<()> {
     let pool = &mut ctx.accounts.pool;
     let authority = &ctx.accounts.authority;
     let mint = &ctx.accounts.mint;
@@ -57,18 +63,20 @@ pub fn create_handler(ctx: Context<Create>, borrow_fee_bps: u32) -> Result<()> {
     let bump = ctx.bumps.pool;
     let lp_mint_bump = ctx.bumps.lp_mint;
 
-    pool.authority = authority.key();
-    pool.mint = mint.key();
-    pool.lp_mint = lp_mint.key();
-    pool.total_deposited = 0;
-    pool.total_borrowed = 0;
-    pool.total_debt_shares = 0;
-    pool.last_accrual_ts = Clock::get()?.unix_timestamp;
-    pool.total_lp_issued = 0;
-    pool.ltv_percent = 75; // Default to 75% LTV
-    pool.borrow_fee_bps = borrow_fee_bps;
-    pool.bump = bump;
-    pool.lp_mint_bump = lp_mint_bump;
+    **pool = Pool {
+        authority: authority.key(),
+        mint: mint.key(),
+        lp_mint: lp_mint.key(),
+        total_deposited: 0,
+        total_borrowed: 0,
+        total_debt_shares: 0,
+        last_accrual_ts: Clock::get()?.unix_timestamp,
+        total_lp_issued: 0,
+        ltv_percent: 75, // Default to 75% LTV
+        fee_config: crate::fees::UtilizationFeeConfig { m1, c1, m2, c2 },
+        bump,
+        lp_mint_bump,
+    };
 
     msg!(
         "Created lending account for authority: {} with mint: {} and LP mint: {} at slot: {}",

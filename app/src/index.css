@@ -13,18 +13,32 @@
   --font-mono: ui-monospace, Consolas, monospace;
 
   /* shadcn/ui color variables */
+  --color-background: #ffffff;
+  --color-foreground: #08060d;
   --color-card: #fff;
   --color-card-foreground: #08060d;
+  --color-muted: #f4f4f5;
   --color-muted-foreground: #6b6375;
   --color-border: #e5e4e7;
+  --color-input: #e5e4e7;
+  --color-ring: #aa3bff;
+  --color-primary: #aa3bff;
+  --color-primary-foreground: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
   @theme {
+    --color-background: #16171d;
+    --color-foreground: #ffffff;
     --color-card: #0f0f0f;
     --color-card-foreground: #fff;
+    --color-muted: #27272a;
     --color-muted-foreground: #a1a1aa;
     --color-border: #27272a;
+    --color-input: #27272a;
+    --color-ring: #c084fc;
+    --color-primary: #c084fc;
+    --color-primary-foreground: #08060d;
   }
 }
 

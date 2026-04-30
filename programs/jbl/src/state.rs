@@ -1,5 +1,5 @@
+use crate::{math::compute_interest, UtilizationFeeConfig};
 use anchor_lang::prelude::*;
-use crate::math::compute_interest;
 
 #[account]
 #[derive(InitSpace)]
@@ -14,18 +14,37 @@ pub struct Pool {
     /// Unix timestamp of the last interest accrual on total_borrowed.
     pub last_accrual_ts: i64,
     pub total_lp_issued: u64, // Total LP tokens issued
-    pub ltv_percent: u8, // Loan-to-Value ratio as percentage (e.g., 75 for 75%)
-    pub borrow_fee_bps: u32, // Annual interest rate in basis points (e.g., 50 = 0.5%, 100_000 = 1000%)
+    pub ltv_percent: u8,      // Loan-to-Value ratio as percentage (e.g., 75 for 75%)
+    pub fee_config: UtilizationFeeConfig,
     pub bump: u8,
     pub lp_mint_bump: u8,
 }
 
 impl Pool {
+    pub fn calculate_utilization(&self) -> u64 {
+        if self.total_deposited == 0 {
+            0
+        } else {
+            (self.total_borrowed as u128)
+                .checked_mul(10_000)
+                .unwrap_or(0)
+                .checked_div(self.total_deposited as u128)
+                .unwrap_or(0) as u64
+        }
+    }
+
     /// Accrue interest into `total_borrowed` based on elapsed time since last
     /// accrual, then update `last_accrual_ts` to `current_ts`.
     pub fn accrue_interest(&mut self, current_ts: i64) -> Result<()> {
         let elapsed = (current_ts.saturating_sub(self.last_accrual_ts)).max(0) as u64;
-        let interest = compute_interest(self.total_borrowed, self.borrow_fee_bps, elapsed)
+        if elapsed == 0 {
+            return Ok(());
+        }
+
+        let utilization = self.calculate_utilization();
+        let fee_bps = self.fee_config.get_fee_bps(utilization);
+
+        let interest = compute_interest(self.total_borrowed, fee_bps, elapsed)
             .ok_or(crate::error::ErrorCode::MathOverflow)?;
         self.total_borrowed = self
             .total_borrowed

@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useWalletConnection } from '@solana/react-hooks'
 import { PublicKey } from '@solana/web3.js'
-import { getAssociatedTokenAddressSync } from '@solana/spl-token'
+import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from '@solana/spl-token'
 import * as anchor from '@anchor-lang/core'
+import { Buffer } from 'buffer'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '../ui/empty'
 import { useLendingAccounts } from '../../hooks/useLendingAccounts'
 import { useAnchorProgram } from '../../hooks/useAnchorProgram'
 import { CreateLendingAccountForm } from '../CreateLendingAccountForm'
@@ -21,6 +23,7 @@ export function LendingInfoCard() {
     const [isSupplying, setIsSupplying] = useState(false)
     const [isBorrowing, setIsBorrowing] = useState(false)
     const [isRepaying, setIsRepaying] = useState(false)
+    const [isWithdrawing, setIsWithdrawing] = useState(false)
     const [txError, setTxError] = useState<string | null>(null)
 
     const userPublicKey = useMemo(
@@ -65,11 +68,21 @@ export function LendingInfoCard() {
 
         const utilizationRate = totalSupply > 0 ? (totalBorrowed / totalSupply) * 100 : 0
 
-        // Derive APYs from on-chain borrow_fee_bps
+        // Derive APYs from on-chain feeConfig
         // borrowApy: annualized rate = fee_bps / 100 (e.g. 50 bps = 0.5%)
         // supplyApy: lenders earn borrowApy scaled by utilization
-        const avgFeeBps = accounts.length > 0
-            ? accounts.reduce((sum, acc) => sum + acc.borrowFeeBps, 0) / accounts.length
+        const feesBps = accounts.map((acc) => {
+            const uBps = acc.totalDeposited > 0n
+                ? Number((acc.totalBorrowed * 10000n) / acc.totalDeposited)
+                : 0
+            const { m1, c1, m2, c2 } = acc.feeConfig
+            const y1 = (Number(m1) * uBps) / 10000 + Number(c1)
+            const y2 = (Number(m2) * uBps) / 10000 + Number(c2)
+            return Math.max(y1, y2)
+        })
+
+        const avgFeeBps = feesBps.length > 0
+            ? feesBps.reduce((sum, fee) => sum + fee, 0) / feesBps.length
             : 0
         const borrowApy = avgFeeBps / 100
         const supplyApy = borrowApy * (utilizationRate / 100)
@@ -86,6 +99,10 @@ export function LendingInfoCard() {
         }
     }, [accounts, loading, userPublicKey])
 
+    const RPC_OPTS = { skipPreflight: true } as const
+    const alreadyProcessed = (err: unknown) =>
+        String(err).includes('already been processed')
+
     async function handleSupply() {
         if (!program || !userAccount || !userPublicKey || !amount) return
         setIsSupplying(true)
@@ -94,12 +111,13 @@ export function LendingInfoCard() {
             const lamports = new anchor.BN(parseFloat(amount) * TOKEN_DECIMALS)
             const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const tx = await program.methods.deposit(lamports).accounts({ mint: userAccount.mint, userTokenAccount } as any).rpc()
+            const tx = await program.methods.deposit(lamports).accounts({ mint: userAccount.mint, userTokenAccount } as any).rpc(RPC_OPTS)
             console.log('Supply tx:', tx)
             setAmount('')
             refetch()
         } catch (err) {
-            setTxError(err instanceof Error ? err.message : String(err))
+            if (alreadyProcessed(err)) { setAmount(''); refetch() }
+            else setTxError(err instanceof Error ? err.message : String(err))
         } finally {
             setIsSupplying(false)
         }
@@ -113,12 +131,13 @@ export function LendingInfoCard() {
             const lamports = new anchor.BN(parseFloat(amount) * TOKEN_DECIMALS)
             const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const tx = await program.methods.borrow(lamports).accounts({ mint: userAccount.mint, userTokenAccount } as any).rpc()
+            const tx = await program.methods.borrow(lamports).accounts({ mint: userAccount.mint, userTokenAccount } as any).rpc(RPC_OPTS)
             console.log('Borrow tx:', tx)
             setAmount('')
             refetch()
         } catch (err) {
-            setTxError(err instanceof Error ? err.message : String(err))
+            if (alreadyProcessed(err)) { setAmount(''); refetch() }
+            else setTxError(err instanceof Error ? err.message : String(err))
         } finally {
             setIsBorrowing(false)
         }
@@ -132,13 +151,104 @@ export function LendingInfoCard() {
             const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const lamports = new anchor.BN(parseFloat(amount || '0') * TOKEN_DECIMALS)
-            const tx = await program.methods.repay(lamports).accounts({ mint: userAccount.mint, userTokenAccount } as any).rpc()
+            const tx = await program.methods.repay(lamports).accounts({ mint: userAccount.mint, userTokenAccount } as any).rpc(RPC_OPTS)
             console.log('Repay tx:', tx)
+            setAmount('')
             refetch()
         } catch (err) {
-            setTxError(err instanceof Error ? err.message : String(err))
+            if (alreadyProcessed(err)) { setAmount(''); refetch() }
+            else setTxError(err instanceof Error ? err.message : String(err))
         } finally {
             setIsRepaying(false)
+        }
+    }
+
+    async function handleWithdraw() {
+        console.log('Attempting to withdraw', { amount, userAccount, userPublicKey })
+        if (!program || !userAccount || !userPublicKey || !amount) return
+        setIsWithdrawing(true)
+        setTxError(null)
+        try {
+            const lamports = new anchor.BN(parseFloat(amount) * TOKEN_DECIMALS)
+            const programId = program.programId
+            const [pool] = PublicKey.findProgramAddressSync(
+                [Buffer.from('lending'), userPublicKey.toBytes(), userAccount.mint.toBytes()],
+                programId,
+            )
+            const [vault] = PublicKey.findProgramAddressSync(
+                [Buffer.from('pool'), pool.toBytes()],
+                programId,
+            )
+            const [userPosition] = PublicKey.findProgramAddressSync(
+                [Buffer.from('user_position'), pool.toBytes(), userPublicKey.toBytes()],
+                programId,
+            )
+            const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
+            const userLpTokenAccount = getAssociatedTokenAddressSync(userAccount.lpMint, userPublicKey)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const tx = await program.methods.withdraw(lamports).accounts({
+                pool,
+                mint: userAccount.mint,
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                lp_mint: userAccount.lpMint,
+                authority: userPublicKey,
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                user_token_account: userTokenAccount,
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                user_lp_token_account: userLpTokenAccount,
+                vault,
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                user_position: userPosition,
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                token_program: TOKEN_PROGRAM_ID,
+            } as any).rpc(RPC_OPTS)
+            console.log('Withdraw tx:', tx)
+            setAmount('')
+            refetch()
+        } catch (err) {
+            console.error('Withdraw failed:', err)
+            if (alreadyProcessed(err)) { setAmount(''); refetch() }
+            else setTxError(err instanceof Error ? err.message : String(err))
+        } finally {
+            setIsWithdrawing(false)
+        }
+    }
+
+    async function handleTakeLp() {
+        if (!program || !userAccount || !userPublicKey || !amount) return
+        setTxError(null)
+        try {
+            const lamports = new anchor.BN(parseFloat(amount) * TOKEN_DECIMALS)
+            const programId = program.programId
+            const [pool] = PublicKey.findProgramAddressSync(
+                [Buffer.from('lending'), userPublicKey.toBytes(), userAccount.mint.toBytes()],
+                programId,
+            )
+            const [userPosition] = PublicKey.findProgramAddressSync(
+                [Buffer.from('user_position'), pool.toBytes(), userPublicKey.toBytes()],
+                programId,
+            )
+            const userLpTokenAccount = getAssociatedTokenAddressSync(userAccount.lpMint, userPublicKey)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const tx = await program.methods.takeLp(lamports).accounts({
+                pool,
+                mint: userAccount.mint,
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                lp_mint: userAccount.lpMint,
+                authority: userPublicKey,
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                user_position: userPosition,
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                user_lp_token_account: userLpTokenAccount,
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                token_program: TOKEN_PROGRAM_ID,
+            } as any).rpc(RPC_OPTS)
+            console.log('TakeLp tx:', tx)
+            setAmount('')
+            refetch()
+        } catch (err) {
+            if (alreadyProcessed(err)) { setAmount(''); refetch() }
+            else setTxError(err instanceof Error ? err.message : String(err))
         }
     }
 
@@ -152,17 +262,17 @@ export function LendingInfoCard() {
 
     if (accounts.length === 0) {
         return (
-            <Card className="w-full max-w-2xl border-pink-200">
-                <CardHeader>
-                    <CardTitle>No Pools Found</CardTitle>
-                    <CardDescription>
+            <Empty className="w-full max-w-2xl border border-pink-200">
+                <EmptyHeader>
+                    <EmptyTitle>No Pools Found</EmptyTitle>
+                    <EmptyDescription>
                         There are currently no active lending pools on this cluster.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
+                    </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
                     <CreateLendingAccountForm onCreated={refetch} />
-                </CardContent>
-            </Card>
+                </EmptyContent>
+            </Empty>
         )
     }
 
@@ -185,9 +295,12 @@ export function LendingInfoCard() {
                         onSupply={handleSupply}
                         onBorrow={handleBorrow}
                         onRepay={handleRepay}
+                        onWithdraw={handleWithdraw}
+                        onTakeLp={handleTakeLp}
                         isSupplying={isSupplying}
                         isBorrowing={isBorrowing}
                         isRepaying={isRepaying}
+                        isWithdrawing={isWithdrawing}
                         error={txError}
                     />
                 ) : (

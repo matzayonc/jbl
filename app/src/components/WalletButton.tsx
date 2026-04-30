@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { PublicKey } from '@solana/web3.js'
 import { useWalletConnection } from '@solana/react-hooks'
 import { FaucetButton } from './FaucetButton'
+import { Button } from './ui/button'
 import { useLendingAccounts } from '../hooks/useLendingAccounts'
 
 export function WalletButton() {
@@ -25,12 +26,13 @@ export function WalletButton() {
                 </p>
                 <div className="flex gap-2">
                     {userMint && <FaucetButton mint={userMint} />}
-                    <button
+                    <Button
                         onClick={() => disconnect()}
-                        className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-800"
+                        variant="outline"
+                        className="border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-800"
                     >
                         Disconnect
-                    </button>
+                    </Button>
                 </div>
             </div>
         )
@@ -39,14 +41,14 @@ export function WalletButton() {
     return (
         <div className="flex flex-col items-center gap-2">
             {connectors.map((c) => (
-                <button
+                <Button
                     key={c.id}
                     onClick={() => connect(c.id)}
                     disabled={connecting}
-                    className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                    className="bg-accent text-white hover:opacity-90"
                 >
                     {connecting ? 'Connecting…' : `Connect ${c.name}`}
-                </button>
+                </Button>
             ))}
             {connectors.length === 0 && (
                 <p className="text-sm text-gray-400">No wallets detected</p>

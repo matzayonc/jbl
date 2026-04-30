@@ -101,12 +101,15 @@ pub fn deposit_handler(ctx: Context<Deposit>, amount: u64) -> Result<()> {
     let position = &mut ctx.accounts.user_position;
     if position.authority == Pubkey::default() {
         // First deposit: initialize all fields
-        position.authority = ctx.accounts.authority.key();
-        position.pool = ctx.accounts.pool.key();
-        position.deposited_amount = amount;
-        position.lp_tokens_owed = lp_tokens_owed;
-        position.deposited_at_slot = Clock::get()?.slot;
-        position.bump = ctx.bumps.user_position;
+        **position = UserPosition {
+            authority: ctx.accounts.authority.key(),
+            pool: ctx.accounts.pool.key(),
+            deposited_amount: amount,
+            lp_tokens_owed,
+            deposited_at_slot: Clock::get()?.slot,
+            debt_shares: 0,
+            bump: ctx.bumps.user_position,
+        };
     } else {
         // Subsequent deposit: accumulate
         position.deposited_amount = position

@@ -1,5 +1,12 @@
 import type { PublicKey } from '@solana/web3.js'
 
+export interface UtilizationFeeConfig {
+    m1: bigint
+    c1: bigint
+    m2: bigint
+    c2: bigint
+}
+
 export interface LendingAccountData {
     publicKey: PublicKey
     authority: PublicKey
@@ -11,5 +18,5 @@ export interface LendingAccountData {
     lastAccrualTs: bigint
     bump: number
     lpMintBump: number
-    borrowFeeBps: number
+    feeConfig: UtilizationFeeConfig
 }

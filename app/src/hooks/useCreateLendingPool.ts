@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import * as anchor from '@anchor-lang/core'
 import { Keypair, PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
 import {
     createInitializeMint2Instruction,
@@ -56,7 +57,12 @@ export function useCreateLendingPool(onCreated: () => void): UseCreateLendingPoo
             // Step 2: create the lending account PDA
             const { blockhash: bh2, lastValidBlockHeight: lv2 } = await connection.getLatestBlockhash()
             const lendingTx = await readonlyProgram.methods
-                .create(50) // 50 bps = 0.5% fee
+                .create(
+                    new anchor.BN(0),    // m1: 0 (flat base rate)
+                    new anchor.BN(200),  // c1: 200 bps (2% base rate)
+                    new anchor.BN(1000), // m2: 1000 (slope to 10% at 100% utilization)
+                    new anchor.BN(0)     // c2: 0
+                )
                 .accounts({ mint: mintKeypair.publicKey, authority: payer, payer })
                 .transaction()
 
