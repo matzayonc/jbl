@@ -1,33 +1,20 @@
 use crate::math::shares_to_amount;
 use crate::state::{Pool, UserPosition};
 use anchor_lang::prelude::*;
-use anchor_spl::associated_token::AssociatedToken;
-use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount, Transfer};
+use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
     #[account(
         mut,
-        seeds = [b"lending", pool_authority.key().as_ref(), mint.key().as_ref()],
+        seeds = [b"lending", pool.authority.as_ref(), mint.key().as_ref()],
         bump = pool.bump,
         has_one = mint,
-        has_one = lp_mint,
     )]
     pub pool: Account<'info, Pool>,
 
-    /// CHECK: Only used as a seed for pool PDA derivation.
-    pub pool_authority: UncheckedAccount<'info>,
-
     /// The mint of the token being withdrawn
-    pub mint: Box<Account<'info, Mint>>,
-
-    /// The LP token mint for this lending pool
-    #[account(
-        mut,
-        seeds = [b"lp_mint", pool.key().as_ref()],
-        bump = pool.lp_mint_bump,
-    )]
-    pub lp_mint: Box<Account<'info, Mint>>,
+    pub mint: Account<'info, Mint>,
 
     /// The withdrawer
     #[account(mut)]
@@ -39,16 +26,7 @@ pub struct Withdraw<'info> {
         constraint = user_token_account.owner == authority.key(),
         constraint = user_token_account.mint == mint.key(),
     )]
-    pub user_token_account: Box<Account<'info, TokenAccount>>,
-
-    /// The user's LP token account (source for burning)
-    #[account(
-        init_if_needed,
-        payer = authority,
-        associated_token::mint = lp_mint,
-        associated_token::authority = authority,
-    )]
-    pub user_lp_token_account: Box<Account<'info, TokenAccount>>,
+    pub user_token_account: Account<'info, TokenAccount>,
 
     /// The lending account's token account (source)
     #[account(
@@ -57,19 +35,20 @@ pub struct Withdraw<'info> {
         bump,
         constraint = pool.mint == mint.key(),
     )]
-    pub vault: Box<Account<'info, TokenAccount>>,
+    pub vault: Account<'info, TokenAccount>,
 
-    /// PDA that records the user's deposit and pending LP tokens.
+    /// PDA that records the user's deposit and borrow position.
     #[account(
         mut,
         seeds = [b"user_position", pool.key().as_ref(), authority.key().as_ref()],
         bump = user_position.bump,
         has_one = authority,
+        constraint = user_position.pool == pool.key()
+            @ crate::error::ErrorCode::InvalidAmount,
     )]
-    pub user_position: Box<Account<'info, UserPosition>>,
+    pub user_position: Account<'info, UserPosition>,
 
     pub token_program: Program<'info, Token>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
 
@@ -115,46 +94,9 @@ pub fn withdraw_handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         crate::error::ErrorCode::InsufficientFunds
     );
 
-    // ── 3. Calculate LP tokens to burn ────────────────────────────────────────
-    // ratio = total_lp_issued / total_deposited
-    // lp_to_burn = amount * total_lp_issued / total_deposited
-    let lp_to_burn = (amount as u128)
-        .checked_mul(pool.total_lp_issued as u128)
-        .ok_or(crate::error::ErrorCode::MathOverflow)?
-        .checked_div(pool.total_deposited as u128)
-        .ok_or(crate::error::ErrorCode::MathOverflow)? as u64;
-
-    // ── 4. Burn LP tokens ─────────────────────────────────────────────────────
-    // Prefer burning from pending lp_tokens_owed first
-    let from_owed = lp_to_burn.min(position.lp_tokens_owed);
-    position.lp_tokens_owed = position
-        .lp_tokens_owed
-        .checked_sub(from_owed)
-        .ok_or(crate::error::ErrorCode::MathOverflow)?;
-
-    let remaining_to_burn = lp_to_burn
-        .checked_sub(from_owed)
-        .ok_or(crate::error::ErrorCode::MathOverflow)?;
-
-    if remaining_to_burn > 0 {
-        // Burn from user's SPL token account
-        let burn_accounts = Burn {
-            mint: ctx.accounts.lp_mint.to_account_info(),
-            from: ctx.accounts.user_lp_token_account.to_account_info(),
-            authority: ctx.accounts.authority.to_account_info(),
-        };
-        token::burn(
-            CpiContext::new(
-                ctx.accounts.token_program.to_account_info().key.clone(),
-                burn_accounts,
-            ),
-            remaining_to_burn,
-        )?;
-    }
-
-    // ── 5. Transfer underlying tokens back to user ────────────────────────────
+    // ── 3. Transfer underlying tokens back to user ────────────────────────────
     let pool_bump = pool.bump;
-    let authority_key = ctx.accounts.pool_authority.key();
+    let authority_key = pool.authority;
     let mint_key = ctx.accounts.mint.key();
 
     let seeds = &[
@@ -179,21 +121,50 @@ pub fn withdraw_handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         amount,
     )?;
 
-    // ── 6. Update state ───────────────────────────────────────────────────────
+    // ── 4. Update state ───────────────────────────────────────────────────────
+
+    // Proportional LP tokens to remove from the position and pool.
+    // lp_owed_reduction = amount * position.lp_tokens_owed / position.deposited_amount
+    let lp_owed_reduction = if position.lp_tokens_owed > 0 {
+        (amount as u128)
+            .checked_mul(position.lp_tokens_owed as u128)
+            .ok_or(crate::error::ErrorCode::MathOverflow)?
+            .checked_div(position.deposited_amount as u128)
+            .ok_or(crate::error::ErrorCode::MathOverflow)? as u64
+    } else {
+        0
+    };
+
+    // lp_issued_reduction = amount * pool.total_lp_issued / pool.total_deposited
+    let lp_issued_reduction = if pool.total_lp_issued > 0 {
+        (amount as u128)
+            .checked_mul(pool.total_lp_issued as u128)
+            .ok_or(crate::error::ErrorCode::MathOverflow)?
+            .checked_div(pool.total_deposited as u128)
+            .ok_or(crate::error::ErrorCode::MathOverflow)? as u64
+    } else {
+        0
+    };
+
     pool.total_deposited = pool
         .total_deposited
         .checked_sub(amount)
         .ok_or(crate::error::ErrorCode::MathOverflow)?;
     pool.total_lp_issued = pool
         .total_lp_issued
-        .checked_sub(lp_to_burn)
+        .checked_sub(lp_issued_reduction)
         .ok_or(crate::error::ErrorCode::MathOverflow)?;
+
     position.deposited_amount = remaining_deposit;
+    position.lp_tokens_owed = position
+        .lp_tokens_owed
+        .checked_sub(lp_owed_reduction)
+        .ok_or(crate::error::ErrorCode::MathOverflow)?;
 
     msg!(
-        "Withdrew {} tokens. Burned {} LP tokens. Remaining deposit: {}",
+        "Withdrew {} tokens. Reduced LP owed by {}. Remaining deposit: {}",
         amount,
-        lp_to_burn,
+        lp_owed_reduction,
         position.deposited_amount
     );
 

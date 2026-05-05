@@ -9,15 +9,12 @@ use anchor_spl::{
 pub struct TakeLp<'info> {
     #[account(
         mut,
-        seeds = [b"lending", pool_authority.key().as_ref(), mint.key().as_ref()],
+        seeds = [b"lending", pool.authority.as_ref(), mint.key().as_ref()],
         bump = pool.bump,
         has_one = mint,
         has_one = lp_mint,
     )]
     pub pool: Account<'info, Pool>,
-
-    /// CHECK: Only used as a seed for pool PDA derivation.
-    pub pool_authority: UncheckedAccount<'info>,
 
     /// The mint of the underlying token (needed for pool seeds)
     pub mint: Account<'info, Mint>,
@@ -70,7 +67,7 @@ pub fn take_lp_handler(ctx: Context<TakeLp>, amount: u64) -> Result<()> {
     let lp_tokens_to_mint = amount;
 
     // The pool PDA is the mint authority for lp_mint
-    let authority_key = ctx.accounts.pool_authority.key();
+    let authority_key = ctx.accounts.pool.authority;
     let mint_key = ctx.accounts.mint.key();
     let pool_bump = ctx.accounts.pool.bump;
     let seeds = &[

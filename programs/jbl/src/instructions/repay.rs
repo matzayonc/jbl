@@ -8,14 +8,11 @@ use anchor_spl::token::{Mint, Token, TokenAccount};
 pub struct Repay<'info> {
     #[account(
         mut,
-        seeds = [b"lending", pool_authority.key().as_ref(), mint.key().as_ref()],
+        seeds = [b"lending", pool.authority.as_ref(), mint.key().as_ref()],
         bump = pool.bump,
         has_one = mint,
     )]
     pub pool: Account<'info, Pool>,
-
-    /// CHECK: Only used as a seed for pool PDA derivation.
-    pub pool_authority: UncheckedAccount<'info>,
 
     /// The mint of the token being repaid
     pub mint: Account<'info, Mint>,

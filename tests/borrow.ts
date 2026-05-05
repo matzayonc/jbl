@@ -9,7 +9,6 @@ async function deposit(setup: TestSetup, amount: number) {
         .deposit(new anchor.BN(amount))
         .accounts({
             mint: setup.mint,
-            poolAuthority: setup.authority.publicKey,
             authority: setup.authority.publicKey,
             userTokenAccount: setup.userTokenAccount,
         })
@@ -36,7 +35,7 @@ describe("borrow", () => {
 
             await program.methods
                 .borrow(new anchor.BN(BORROW))
-                .accounts({ mint, poolAuthority: authority.publicKey, authority: authority.publicKey, userTokenAccount })
+                .accounts({ mint, authority: authority.publicKey, userTokenAccount })
                 .signers([authority])
                 .rpc();
 
@@ -72,7 +71,7 @@ describe("borrow", () => {
 
             await program.methods
                 .borrow(new anchor.BN(MAX_BORROW))
-                .accounts({ mint, poolAuthority: authority.publicKey, authority: authority.publicKey, userTokenAccount })
+                .accounts({ mint, authority: authority.publicKey, userTokenAccount })
                 .signers([authority])
                 .rpc();
 
@@ -102,7 +101,7 @@ describe("borrow", () => {
             try {
                 await program.methods
                     .borrow(new anchor.BN(OVER_LTV))
-                    .accounts({ mint, poolAuthority: authority.publicKey, authority: authority.publicKey, userTokenAccount })
+                    .accounts({ mint, authority: authority.publicKey, userTokenAccount })
                     .signers([authority])
                     .rpc();
                 expect.fail("expected borrow to be rejected");
@@ -129,7 +128,7 @@ describe("borrow", () => {
             try {
                 await program.methods
                     .borrow(new anchor.BN(0))
-                    .accounts({ mint, poolAuthority: authority.publicKey, authority: authority.publicKey, userTokenAccount })
+                    .accounts({ mint, authority: authority.publicKey, userTokenAccount })
                     .signers([authority])
                     .rpc();
                 expect.fail("expected borrow to be rejected");
@@ -162,7 +161,7 @@ describe("borrow", () => {
             try {
                 await program.methods
                     .borrow(new anchor.BN(50_000_000))
-                    .accounts({ mint, poolAuthority: setup.authority.publicKey, authority: stranger.publicKey, userTokenAccount: strangerTokenAccount })
+                    .accounts({ mint, authority: stranger.publicKey, userTokenAccount: strangerTokenAccount })
                     .signers([stranger])
                     .rpc();
                 expect.fail("expected borrow to be rejected");
@@ -191,7 +190,7 @@ describe("borrow", () => {
 
             await program.methods
                 .borrow(new anchor.BN(FIRST_BORROW))
-                .accounts({ mint, poolAuthority: authority.publicKey, authority: authority.publicKey, userTokenAccount })
+                .accounts({ mint, authority: authority.publicKey, userTokenAccount })
                 .signers([authority])
                 .rpc();
 
@@ -210,7 +209,7 @@ describe("borrow", () => {
 
             await program.methods
                 .borrow(new anchor.BN(SECOND_BORROW))
-                .accounts({ mint, poolAuthority: authority.publicKey, authority: authority.publicKey, userTokenAccount })
+                .accounts({ mint, authority: authority.publicKey, userTokenAccount })
                 .signers([authority])
                 .rpc();
 
@@ -242,7 +241,7 @@ describe("borrow", () => {
 
             await setup.program.methods
                 .borrow(new anchor.BN(FIRST_BORROW))
-                .accounts({ mint: setup.mint, poolAuthority: setup.authority.publicKey, authority: setup.authority.publicKey, userTokenAccount: setup.userTokenAccount })
+                .accounts({ mint: setup.mint, authority: setup.authority.publicKey, userTokenAccount: setup.userTokenAccount })
                 .signers([setup.authority])
                 .rpc();
         });
@@ -253,7 +252,7 @@ describe("borrow", () => {
             try {
                 await program.methods
                     .borrow(new anchor.BN(SECOND_BORROW))
-                    .accounts({ mint, poolAuthority: authority.publicKey, authority: authority.publicKey, userTokenAccount })
+                    .accounts({ mint, authority: authority.publicKey, userTokenAccount })
                     .signers([authority])
                     .rpc();
                 expect.fail("expected second borrow to be rejected");
@@ -281,13 +280,13 @@ describe("borrow", () => {
 
             await setup.program.methods
                 .deposit(new anchor.BN(DEPOSIT_A))
-                .accounts({ mint: setup.mint, poolAuthority: setup.authority.publicKey, authority: lenderA.authority.publicKey, userTokenAccount: lenderA.userTokenAccount })
+                .accounts({ mint: setup.mint, authority: lenderA.authority.publicKey, userTokenAccount: lenderA.userTokenAccount })
                 .signers([lenderA.authority])
                 .rpc();
 
             await setup.program.methods
                 .deposit(new anchor.BN(DEPOSIT_B))
-                .accounts({ mint: setup.mint, poolAuthority: setup.authority.publicKey, authority: lenderB.authority.publicKey, userTokenAccount: lenderB.userTokenAccount })
+                .accounts({ mint: setup.mint, authority: lenderB.authority.publicKey, userTokenAccount: lenderB.userTokenAccount })
                 .signers([lenderB.authority])
                 .rpc();
         });
@@ -297,7 +296,7 @@ describe("borrow", () => {
 
             await program.methods
                 .borrow(new anchor.BN(BORROW_A))
-                .accounts({ mint, poolAuthority: setup.authority.publicKey, authority: lenderA.authority.publicKey, userTokenAccount: lenderA.userTokenAccount })
+                .accounts({ mint, authority: lenderA.authority.publicKey, userTokenAccount: lenderA.userTokenAccount })
                 .signers([lenderA.authority])
                 .rpc();
 
@@ -316,7 +315,7 @@ describe("borrow", () => {
 
             await program.methods
                 .borrow(new anchor.BN(BORROW_B))
-                .accounts({ mint, poolAuthority: setup.authority.publicKey, authority: lenderB.authority.publicKey, userTokenAccount: lenderB.userTokenAccount })
+                .accounts({ mint, authority: lenderB.authority.publicKey, userTokenAccount: lenderB.userTokenAccount })
                 .signers([lenderB.authority])
                 .rpc();
 

@@ -35,6 +35,10 @@ pub mod jbl {
         take_lp_handler(ctx, amount)
     }
 
+    pub fn put_lp(ctx: Context<PutLp>, amount: u64) -> Result<()> {
+        put_lp_handler(ctx, amount)
+    }
+
     pub fn repay(ctx: Context<Repay>, amount: u64) -> Result<()> {
         repay_handler(ctx, amount)
     }

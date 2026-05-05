@@ -8,14 +8,11 @@ use anchor_spl::token::{Mint, Token, TokenAccount};
 pub struct Borrow<'info> {
     #[account(
         mut,
-        seeds = [b"lending", pool_authority.key().as_ref(), mint.key().as_ref()],
+        seeds = [b"lending", pool.authority.as_ref(), mint.key().as_ref()],
         bump = pool.bump,
         has_one = mint,
     )]
     pub pool: Account<'info, Pool>,
-
-    /// CHECK: Only used as a seed for pool PDA derivation.
-    pub pool_authority: UncheckedAccount<'info>,
 
     /// The mint of the token being borrowed
     pub mint: Account<'info, Mint>,
@@ -118,7 +115,7 @@ pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
 
     // ── 4. Extract signer seeds before mutating pool ──────────────────────────
     let pool_bump = ctx.accounts.pool.bump;
-    let authority_key = ctx.accounts.pool_authority.key();
+    let authority_key = ctx.accounts.pool.authority;
     let mint_key = ctx.accounts.mint.key();
 
     // ── 5. Transfer tokens to the user ────────────────────────────────────────

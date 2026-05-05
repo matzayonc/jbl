@@ -52,7 +52,6 @@ describe("jbl", () => {
         .deposit(new anchor.BN(depositAmount))
         .accounts({
           mint,
-          poolAuthority: authority.publicKey,
           authority: authority.publicKey,
           userTokenAccount,
         })
@@ -63,7 +62,6 @@ describe("jbl", () => {
         .takeLp(new anchor.BN(depositAmount))
         .accounts({
           mint,
-          poolAuthority: authority.publicKey,
           authority: authority.publicKey,
           userLpTokenAccount,
         })
@@ -89,7 +87,6 @@ describe("jbl", () => {
         .deposit(new anchor.BN(secondDepositAmount))
         .accounts({
           mint,
-          poolAuthority: authority.publicKey,
           authority: authority.publicKey,
           userTokenAccount,
         })
@@ -100,7 +97,6 @@ describe("jbl", () => {
         .takeLp(new anchor.BN(secondDepositAmount))
         .accounts({
           mint,
-          poolAuthority: authority.publicKey,
           authority: authority.publicKey,
           userLpTokenAccount,
         })
@@ -127,7 +123,6 @@ describe("jbl", () => {
         .deposit(new anchor.BN(depositAmount))
         .accounts({
           mint,
-          poolAuthority: authority.publicKey,
           authority: authority.publicKey,
           userTokenAccount,
         })
@@ -143,7 +138,6 @@ describe("jbl", () => {
         .borrow(new anchor.BN(borrowAmount))
         .accounts({
           mint,
-          poolAuthority: authority.publicKey,
           authority: authority.publicKey,
           userTokenAccount,
         })

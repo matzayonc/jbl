@@ -20,7 +20,7 @@ describe("deposit and withdraw", () => {
 
             await program.methods
                 .deposit(new anchor.BN(DEPOSIT_AMOUNT))
-                .accounts({ mint, poolAuthority: authority.publicKey, authority: authority.publicKey, userTokenAccount })
+                .accounts({ mint, authority: authority.publicKey, userTokenAccount })
                 .signers([authority])
                 .rpc();
 
@@ -49,13 +49,11 @@ describe("deposit and withdraw", () => {
         });
 
         it("asserts pool and position state after full withdraw", async () => {
-            const { program, mint, lendingAccountPda, lendingVaultPda, lpMintPda, userPositionPda, userTokenAccount, authority, connection } = setup;
-
-            const userLpTokenAccount = anchor.utils.token.associatedAddress({ mint: lpMintPda, owner: authority.publicKey });
+            const { program, mint, lendingAccountPda, lendingVaultPda, userPositionPda, userTokenAccount, authority, connection } = setup;
 
             await program.methods
                 .withdraw(new anchor.BN(DEPOSIT_AMOUNT))
-                .accounts({ mint, poolAuthority: authority.publicKey, authority: authority.publicKey, userTokenAccount, userLpTokenAccount })
+                .accounts({ mint, authority: authority.publicKey, userTokenAccount })
                 .signers([authority])
                 .rpc();
 
@@ -74,9 +72,6 @@ describe("deposit and withdraw", () => {
 
             const userToken = await getAccount(connection, userTokenAccount);
             expect(userToken.amount.toString()).to.equal(INITIAL_BALANCE.toString());
-
-            const userLp = await getAccount(connection, userLpTokenAccount);
-            expect(userLp.amount.toString()).to.equal("0");
         });
     });
 
@@ -93,18 +88,17 @@ describe("deposit and withdraw", () => {
             setup = await setupTest();
             await setup.program.methods
                 .deposit(new anchor.BN(DEPOSIT_AMOUNT))
-                .accounts({ mint: setup.mint, poolAuthority: setup.authority.publicKey, authority: setup.authority.publicKey, userTokenAccount: setup.userTokenAccount })
+                .accounts({ mint: setup.mint, authority: setup.authority.publicKey, userTokenAccount: setup.userTokenAccount })
                 .signers([setup.authority])
                 .rpc();
         });
 
         it("asserts correct state after partial withdraw (40 of 100 tokens)", async () => {
-            const { program, mint, lendingAccountPda, lendingVaultPda, lpMintPda, userPositionPda, userTokenAccount, authority, connection } = setup;
-            const userLpTokenAccount = anchor.utils.token.associatedAddress({ mint: lpMintPda, owner: authority.publicKey });
+            const { program, mint, lendingAccountPda, lendingVaultPda, userPositionPda, userTokenAccount, authority, connection } = setup;
 
             await program.methods
                 .withdraw(new anchor.BN(FIRST_WITHDRAW))
-                .accounts({ mint, poolAuthority: authority.publicKey, authority: authority.publicKey, userTokenAccount, userLpTokenAccount })
+                .accounts({ mint, authority: authority.publicKey, userTokenAccount })
                 .signers([authority])
                 .rpc();
 
@@ -123,18 +117,14 @@ describe("deposit and withdraw", () => {
 
             const userToken = await getAccount(connection, userTokenAccount);
             expect(userToken.amount.toString()).to.equal((INITIAL_BALANCE - DEPOSIT_AMOUNT + FIRST_WITHDRAW).toString());
-
-            const userLp = await getAccount(connection, userLpTokenAccount);
-            expect(userLp.amount.toString()).to.equal("0");
         });
 
         it("asserts correct state after withdrawing the remainder (60 tokens)", async () => {
-            const { program, mint, lendingAccountPda, lendingVaultPda, lpMintPda, userPositionPda, userTokenAccount, authority, connection } = setup;
-            const userLpTokenAccount = anchor.utils.token.associatedAddress({ mint: lpMintPda, owner: authority.publicKey });
+            const { program, mint, lendingAccountPda, lendingVaultPda, userPositionPda, userTokenAccount, authority, connection } = setup;
 
             await program.methods
                 .withdraw(new anchor.BN(SECOND_WITHDRAW))
-                .accounts({ mint, poolAuthority: authority.publicKey, authority: authority.publicKey, userTokenAccount, userLpTokenAccount })
+                .accounts({ mint, authority: authority.publicKey, userTokenAccount })
                 .signers([authority])
                 .rpc();
 
@@ -172,12 +162,12 @@ describe("deposit and withdraw", () => {
 
             await setup.program.methods
                 .deposit(new anchor.BN(DEPOSIT_A))
-                .accounts({ mint: setup.mint, poolAuthority: setup.authority.publicKey, authority: lenderA.authority.publicKey, userTokenAccount: lenderA.userTokenAccount })
+                .accounts({ mint: setup.mint, authority: lenderA.authority.publicKey, userTokenAccount: lenderA.userTokenAccount })
                 .signers([lenderA.authority])
                 .rpc();
             await setup.program.methods
                 .deposit(new anchor.BN(DEPOSIT_B))
-                .accounts({ mint: setup.mint, poolAuthority: setup.authority.publicKey, authority: lenderB.authority.publicKey, userTokenAccount: lenderB.userTokenAccount })
+                .accounts({ mint: setup.mint, authority: lenderB.authority.publicKey, userTokenAccount: lenderB.userTokenAccount })
                 .signers([lenderB.authority])
                 .rpc();
         });
@@ -201,11 +191,9 @@ describe("deposit and withdraw", () => {
         });
 
         it("lender A does a full withdraw — pool reflects only lender B remaining", async () => {
-            const userLpTokenAccountA = anchor.utils.token.associatedAddress({ mint: setup.lpMintPda, owner: lenderA.authority.publicKey });
-
             await setup.program.methods
                 .withdraw(new anchor.BN(WITHDRAW_A))
-                .accounts({ mint: setup.mint, poolAuthority: setup.authority.publicKey, authority: lenderA.authority.publicKey, userTokenAccount: lenderA.userTokenAccount, userLpTokenAccount: userLpTokenAccountA })
+                .accounts({ mint: setup.mint, authority: lenderA.authority.publicKey, userTokenAccount: lenderA.userTokenAccount })
                 .signers([lenderA.authority])
                 .rpc();
 
@@ -225,11 +213,9 @@ describe("deposit and withdraw", () => {
         });
 
         it("lender B does a partial withdraw — correct remaining pool state", async () => {
-            const userLpTokenAccountB = anchor.utils.token.associatedAddress({ mint: setup.lpMintPda, owner: lenderB.authority.publicKey });
-
             await setup.program.methods
                 .withdraw(new anchor.BN(WITHDRAW_B_PARTIAL))
-                .accounts({ mint: setup.mint, poolAuthority: setup.authority.publicKey, authority: lenderB.authority.publicKey, userTokenAccount: lenderB.userTokenAccount, userLpTokenAccount: userLpTokenAccountB })
+                .accounts({ mint: setup.mint, authority: lenderB.authority.publicKey, userTokenAccount: lenderB.userTokenAccount })
                 .signers([lenderB.authority])
                 .rpc();
 
