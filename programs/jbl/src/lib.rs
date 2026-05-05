@@ -13,7 +13,7 @@ pub use fees::*;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("HLEio2bZVs5uGuPEteoqTGPN3VJGvL5qMYQdVnw6HW8w");
+declare_id!("2bnwnhWHfCSKRWgfuyjjJ19GW9vwawVDM96hTRBketph");
 
 #[program]
 pub mod jbl {
