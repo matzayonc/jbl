@@ -233,15 +233,11 @@ export function LendingInfoCard() {
             const tx = await program.methods.takeLp(lamports).accounts({
                 pool,
                 mint: userAccount.mint,
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                lp_mint: userAccount.lpMint,
+                lpMint: userAccount.lpMint,
                 authority: userPublicKey,
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                user_position: userPosition,
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                user_lp_token_account: userLpTokenAccount,
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                token_program: TOKEN_PROGRAM_ID,
+                userPosition: userPosition,
+                userLpTokenAccount: userLpTokenAccount,
+                tokenProgram: TOKEN_PROGRAM_ID,
             } as any).rpc(RPC_OPTS)
             console.log('TakeLp tx:', tx)
             setAmount('')

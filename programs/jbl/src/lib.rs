@@ -13,19 +13,13 @@ pub use fees::*;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("2bnwnhWHfCSKRWgfuyjjJ19GW9vwawVDM96hTRBketph");
+declare_id!("EhZdkVUmUAcYQvrLiKw86AxKo5P1ZKvNnSgpAozBSbAv");
 
 #[program]
 pub mod jbl {
     use super::*;
 
-    pub fn create(
-        ctx: Context<Create>,
-        m1: u64,
-        c1: u64,
-        m2: u64,
-        c2: u64,
-    ) -> Result<()> {
+    pub fn create(ctx: Context<Create>, m1: u64, c1: u64, m2: u64, c2: u64) -> Result<()> {
         create_handler(ctx, m1, c1, m2, c2)
     }
 

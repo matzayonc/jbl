@@ -1,11 +1,10 @@
 import * as anchor from "@anchor-lang/core";
 import { PublicKey } from "@solana/web3.js";
 import {
-  createAssociatedTokenAccount,
   getAccount,
 } from "@solana/spl-token";
 import { expect } from "chai";
-import { setupTest, TestSetup } from "./setup";
+import { setupTest, createUserLpTokenAccount, TestSetup } from "./setup";
 
 describe("jbl", () => {
   describe("create_pool_with_lp", () => {
@@ -22,19 +21,7 @@ describe("jbl", () => {
     });
 
     it("Creates a lending account with LP token mint successfully", async () => {
-      const { program, connection, authority, payer, mint, lendingAccountPda, lendingVaultPda, lpMintPda, feeCurve } = setup;
-
-      const txSignature = await program.methods
-        .create(feeCurve.m1, feeCurve.c1, feeCurve.m2, feeCurve.c2)
-        .accounts({
-          mint,
-          authority: authority.publicKey,
-          payer: payer.publicKey,
-        })
-        .signers([payer, authority])
-        .rpc();
-
-      await connection.confirmTransaction(txSignature);
+      const { program, connection, authority, mint, lendingAccountPda, lendingVaultPda, lpMintPda } = setup;
 
       const lendingAccount = await program.account.pool.fetch(lendingAccountPda);
 
@@ -55,24 +42,9 @@ describe("jbl", () => {
     });
 
     it("Tests LP token ratio calculation on deposit", async () => {
-      const { program, connection, authority, payer, mint, lendingAccountPda, lpMintPda, userTokenAccount, feeCurve } = setup;
+      const { program, connection, authority, mint, lendingAccountPda, lpMintPda, userTokenAccount } = setup;
 
-      await program.methods
-        .create(feeCurve.m1, feeCurve.c1, feeCurve.m2, feeCurve.c2)
-        .accounts({
-          mint,
-          authority: authority.publicKey,
-          payer: payer.publicKey,
-        })
-        .signers([payer, authority])
-        .rpc();
-
-      userLpTokenAccount = await createAssociatedTokenAccount(
-        connection,
-        payer,
-        lpMintPda,
-        authority.publicKey
-      );
+      userLpTokenAccount = await createUserLpTokenAccount(setup);
 
       const depositAmount = 100000000; // 100 tokens with 6 decimals
 
@@ -80,6 +52,7 @@ describe("jbl", () => {
         .deposit(new anchor.BN(depositAmount))
         .accounts({
           mint,
+          poolAuthority: authority.publicKey,
           authority: authority.publicKey,
           userTokenAccount,
         })
@@ -90,6 +63,7 @@ describe("jbl", () => {
         .takeLp(new anchor.BN(depositAmount))
         .accounts({
           mint,
+          poolAuthority: authority.publicKey,
           authority: authority.publicKey,
           userLpTokenAccount,
         })
@@ -115,6 +89,7 @@ describe("jbl", () => {
         .deposit(new anchor.BN(secondDepositAmount))
         .accounts({
           mint,
+          poolAuthority: authority.publicKey,
           authority: authority.publicKey,
           userTokenAccount,
         })
@@ -125,6 +100,7 @@ describe("jbl", () => {
         .takeLp(new anchor.BN(secondDepositAmount))
         .accounts({
           mint,
+          poolAuthority: authority.publicKey,
           authority: authority.publicKey,
           userLpTokenAccount,
         })
@@ -143,17 +119,7 @@ describe("jbl", () => {
     });
 
     it("Tests borrowing against deposited funds", async () => {
-      const { program, connection, authority, payer, mint, lendingAccountPda, userTokenAccount, feeCurve } = setup;
-
-      await program.methods
-        .create(feeCurve.m1, feeCurve.c1, feeCurve.m2, feeCurve.c2)
-        .accounts({
-          mint,
-          authority: authority.publicKey,
-          payer: payer.publicKey,
-        })
-        .signers([payer, authority])
-        .rpc();
+      const { program, connection, authority, mint, lendingAccountPda, userTokenAccount } = setup;
 
       const depositAmount = 100000000; // 100 tokens with 6 decimals
 
@@ -161,6 +127,7 @@ describe("jbl", () => {
         .deposit(new anchor.BN(depositAmount))
         .accounts({
           mint,
+          poolAuthority: authority.publicKey,
           authority: authority.publicKey,
           userTokenAccount,
         })
@@ -176,6 +143,7 @@ describe("jbl", () => {
         .borrow(new anchor.BN(borrowAmount))
         .accounts({
           mint,
+          poolAuthority: authority.publicKey,
           authority: authority.publicKey,
           userTokenAccount,
         })

@@ -8,17 +8,19 @@ use anchor_spl::token::{Mint, Token, TokenAccount};
 pub struct Borrow<'info> {
     #[account(
         mut,
-        seeds = [b"lending", authority.key().as_ref(), mint.key().as_ref()],
+        seeds = [b"lending", pool_authority.key().as_ref(), mint.key().as_ref()],
         bump = pool.bump,
-        has_one = authority,
         has_one = mint,
     )]
     pub pool: Account<'info, Pool>,
 
+    /// CHECK: Only used as a seed for pool PDA derivation.
+    pub pool_authority: UncheckedAccount<'info>,
+
     /// The mint of the token being borrowed
     pub mint: Account<'info, Mint>,
 
-    /// The authority that owns this lending account
+    /// The borrower
     #[account(mut)]
     pub authority: Signer<'info>,
 
@@ -87,7 +89,8 @@ pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
             ctx.accounts.user_position.debt_shares,
             pool.total_borrowed,
             pool.total_debt_shares,
-        ).ok_or(crate::error::ErrorCode::MathOverflow)?
+        )
+        .ok_or(crate::error::ErrorCode::MathOverflow)?
     } else {
         0
     };
@@ -115,7 +118,7 @@ pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
 
     // ── 4. Extract signer seeds before mutating pool ──────────────────────────
     let pool_bump = ctx.accounts.pool.bump;
-    let authority_key = ctx.accounts.authority.key();
+    let authority_key = ctx.accounts.pool_authority.key();
     let mint_key = ctx.accounts.mint.key();
 
     // ── 5. Transfer tokens to the user ────────────────────────────────────────
@@ -143,10 +146,12 @@ pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
 
     // ── 6. Update pool state ──────────────────────────────────────────────────
     let pool = &mut ctx.accounts.pool;
-    pool.total_debt_shares = pool.total_debt_shares
+    pool.total_debt_shares = pool
+        .total_debt_shares
         .checked_add(new_shares)
         .ok_or(crate::error::ErrorCode::MathOverflow)?;
-    pool.total_borrowed = pool.total_borrowed
+    pool.total_borrowed = pool
+        .total_borrowed
         .checked_add(amount)
         .ok_or(crate::error::ErrorCode::MathOverflow)?;
 

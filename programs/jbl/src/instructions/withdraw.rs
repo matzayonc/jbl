@@ -1,22 +1,25 @@
 use crate::math::shares_to_amount;
 use crate::state::{Pool, UserPosition};
 use anchor_lang::prelude::*;
+use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount, Transfer};
 
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
     #[account(
         mut,
-        seeds = [b"lending", authority.key().as_ref(), mint.key().as_ref()],
+        seeds = [b"lending", pool_authority.key().as_ref(), mint.key().as_ref()],
         bump = pool.bump,
-        has_one = authority,
         has_one = mint,
         has_one = lp_mint,
     )]
     pub pool: Account<'info, Pool>,
 
+    /// CHECK: Only used as a seed for pool PDA derivation.
+    pub pool_authority: UncheckedAccount<'info>,
+
     /// The mint of the token being withdrawn
-    pub mint: Account<'info, Mint>,
+    pub mint: Box<Account<'info, Mint>>,
 
     /// The LP token mint for this lending pool
     #[account(
@@ -24,9 +27,9 @@ pub struct Withdraw<'info> {
         seeds = [b"lp_mint", pool.key().as_ref()],
         bump = pool.lp_mint_bump,
     )]
-    pub lp_mint: Account<'info, Mint>,
+    pub lp_mint: Box<Account<'info, Mint>>,
 
-    /// The authority that owns this lending account
+    /// The withdrawer
     #[account(mut)]
     pub authority: Signer<'info>,
 
@@ -36,15 +39,16 @@ pub struct Withdraw<'info> {
         constraint = user_token_account.owner == authority.key(),
         constraint = user_token_account.mint == mint.key(),
     )]
-    pub user_token_account: Account<'info, TokenAccount>,
+    pub user_token_account: Box<Account<'info, TokenAccount>>,
 
     /// The user's LP token account (source for burning)
     #[account(
-        mut,
-        constraint = user_lp_token_account.owner == authority.key(),
-        constraint = user_lp_token_account.mint == lp_mint.key(),
+        init_if_needed,
+        payer = authority,
+        associated_token::mint = lp_mint,
+        associated_token::authority = authority,
     )]
-    pub user_lp_token_account: Account<'info, TokenAccount>,
+    pub user_lp_token_account: Box<Account<'info, TokenAccount>>,
 
     /// The lending account's token account (source)
     #[account(
@@ -53,7 +57,7 @@ pub struct Withdraw<'info> {
         bump,
         constraint = pool.mint == mint.key(),
     )]
-    pub vault: Account<'info, TokenAccount>,
+    pub vault: Box<Account<'info, TokenAccount>>,
 
     /// PDA that records the user's deposit and pending LP tokens.
     #[account(
@@ -62,9 +66,11 @@ pub struct Withdraw<'info> {
         bump = user_position.bump,
         has_one = authority,
     )]
-    pub user_position: Account<'info, UserPosition>,
+    pub user_position: Box<Account<'info, UserPosition>>,
 
     pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
 }
 
 pub fn withdraw_handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
@@ -148,7 +154,7 @@ pub fn withdraw_handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
 
     // ── 5. Transfer underlying tokens back to user ────────────────────────────
     let pool_bump = pool.bump;
-    let authority_key = ctx.accounts.authority.key();
+    let authority_key = ctx.accounts.pool_authority.key();
     let mint_key = ctx.accounts.mint.key();
 
     let seeds = &[

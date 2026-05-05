@@ -1,18 +1,23 @@
 use crate::state::{Pool, UserPosition};
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, MintTo, Token, TokenAccount};
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token::{Mint, MintTo, Token, TokenAccount},
+};
 
 #[derive(Accounts)]
 pub struct TakeLp<'info> {
     #[account(
         mut,
-        seeds = [b"lending", authority.key().as_ref(), mint.key().as_ref()],
+        seeds = [b"lending", pool_authority.key().as_ref(), mint.key().as_ref()],
         bump = pool.bump,
-        has_one = authority,
         has_one = mint,
         has_one = lp_mint,
     )]
     pub pool: Account<'info, Pool>,
+
+    /// CHECK: Only used as a seed for pool PDA derivation.
+    pub pool_authority: UncheckedAccount<'info>,
 
     /// The mint of the underlying token (needed for pool seeds)
     pub mint: Account<'info, Mint>,
@@ -25,7 +30,7 @@ pub struct TakeLp<'info> {
     )]
     pub lp_mint: Account<'info, Mint>,
 
-    /// The authority claiming their LP tokens
+    /// The LP taker
     #[account(mut)]
     pub authority: Signer<'info>,
 
@@ -43,13 +48,16 @@ pub struct TakeLp<'info> {
 
     /// The user's LP token account (destination)
     #[account(
-        mut,
-        constraint = user_lp_token_account.owner == authority.key(),
-        constraint = user_lp_token_account.mint == lp_mint.key(),
+        init_if_needed,
+        payer = authority,
+        associated_token::mint = lp_mint,
+        associated_token::authority = authority,
     )]
     pub user_lp_token_account: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
 }
 
 pub fn take_lp_handler(ctx: Context<TakeLp>, amount: u64) -> Result<()> {
@@ -62,7 +70,7 @@ pub fn take_lp_handler(ctx: Context<TakeLp>, amount: u64) -> Result<()> {
     let lp_tokens_to_mint = amount;
 
     // The pool PDA is the mint authority for lp_mint
-    let authority_key = ctx.accounts.authority.key();
+    let authority_key = ctx.accounts.pool_authority.key();
     let mint_key = ctx.accounts.mint.key();
     let pool_bump = ctx.accounts.pool.bump;
     let seeds = &[

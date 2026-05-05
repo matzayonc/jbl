@@ -32,6 +32,7 @@ export interface TestSetup {
   lendingAccountPda: PublicKey;
   lendingVaultPda: PublicKey;
   lpMintPda: PublicKey;
+  userPositionPda: PublicKey;
   userTokenAccount: PublicKey;
   feeCurve: FeeCurve;
 }
@@ -90,6 +91,11 @@ export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE): Promise
     program.programId
   );
 
+  const [userPositionPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("user_position"), lendingAccountPda.toBuffer(), authority.publicKey.toBuffer()],
+    program.programId
+  );
+
   // Create user token account and mint initial tokens (1000 tokens with 6 decimals)
   const userTokenAccount = await createAssociatedTokenAccount(
     connection,
@@ -107,6 +113,13 @@ export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE): Promise
     1_000_000_000 // 1000 tokens
   );
 
+  // Create the lending pool
+  await program.methods
+    .create(feeCurve.m1, feeCurve.c1, feeCurve.m2, feeCurve.c2)
+    .accounts({ mint, authority: authority.publicKey, payer: payer.publicKey })
+    .signers([payer, authority])
+    .rpc();
+
   return {
     provider,
     program,
@@ -117,7 +130,52 @@ export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE): Promise
     lendingAccountPda,
     lendingVaultPda,
     lpMintPda,
+    userPositionPda,
     userTokenAccount,
     feeCurve,
   };
+}
+
+export interface Lender {
+  authority: Keypair;
+  userTokenAccount: PublicKey;
+  userPositionPda: PublicKey;
+}
+
+/**
+ * Creates a new lender (depositor) for an existing pool.
+ * Airdrops SOL, creates a token account for the pool's mint, and mints 1000 tokens.
+ */
+export async function createLender(setup: TestSetup): Promise<Lender> {
+  const { connection, payer, mint, authority: mintAuthority, program, lendingAccountPda } = setup;
+
+  const authority = Keypair.generate();
+
+  const airdrop = await connection.requestAirdrop(authority.publicKey, 2 * LAMPORTS_PER_SOL);
+  await connection.confirmTransaction(airdrop);
+
+  const userTokenAccount = await createAssociatedTokenAccount(connection, payer, mint, authority.publicKey);
+
+  await mintTo(connection, payer, mint, userTokenAccount, mintAuthority, 1_000_000_000);
+
+  const [userPositionPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("user_position"), lendingAccountPda.toBuffer(), authority.publicKey.toBuffer()],
+    program.programId
+  );
+
+  return { authority, userTokenAccount, userPositionPda };
+}
+
+/**
+ * Creates the user's LP token account for a given setup.
+ * Must be called after the pool has been created on-chain (LP mint is initialized by create()).
+ */
+export async function createUserLpTokenAccount(setup: TestSetup): Promise<PublicKey> {
+  const { connection, payer, lpMintPda, authority } = setup;
+  return createAssociatedTokenAccount(
+    connection,
+    payer,
+    lpMintPda,
+    authority.publicKey
+  );
 }
