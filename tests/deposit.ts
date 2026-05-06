@@ -1,7 +1,7 @@
 import * as anchor from "@anchor-lang/core";
 import { getAccount } from "@solana/spl-token";
 import { expect } from "chai";
-import { setupTest, createLender } from "./setup";
+import { setupTest, createLender } from "./utils";
 
 describe("deposit and withdraw", () => {
     // ── 1. Simple deposit then full withdraw ─────────────────────────────────────
@@ -16,27 +16,27 @@ describe("deposit and withdraw", () => {
         });
 
         it("asserts pool and position state after deposit", async () => {
-            const { program, mint, lendingAccountPda, lendingVaultPda, lpMintPda, userPositionPda, userTokenAccount, authority, connection } = setup;
+            const { program, mint, pool, lendingVaultPda, lpMintPda, userPositionPda, userTokenAccount, authority, connection } = setup;
 
             await program.methods
                 .deposit(new anchor.BN(DEPOSIT_AMOUNT))
-                .accounts({ mint, authority: authority.publicKey, userTokenAccount })
+                .accounts({ pool, mint, authority: authority.publicKey, userTokenAccount })
                 .signers([authority])
                 .rpc();
 
-            const pool = await program.account.pool.fetch(lendingAccountPda);
-            expect(pool.authority.toString()).to.equal(authority.publicKey.toString());
-            expect(pool.mint.toString()).to.equal(mint.toString());
-            expect(pool.lpMint.toString()).to.equal(lpMintPda.toString());
-            expect(pool.totalDeposited.toString()).to.equal(DEPOSIT_AMOUNT.toString());
-            expect(pool.totalLpIssued.toString()).to.equal(DEPOSIT_AMOUNT.toString()); // 1:1 on first deposit
-            expect(pool.totalBorrowed.toString()).to.equal("0");
-            expect(pool.totalDebtShares.toString()).to.equal("0");
-            expect(pool.ltvPercent).to.equal(75);
+            const poolAccount = await program.account.pool.fetch(pool);
+            expect(poolAccount.authority.toString()).to.equal(authority.publicKey.toString());
+            expect(poolAccount.mint.toString()).to.equal(mint.toString());
+            expect(poolAccount.lpMint.toString()).to.equal(lpMintPda.toString());
+            expect(poolAccount.totalDeposited.toString()).to.equal(DEPOSIT_AMOUNT.toString());
+            expect(poolAccount.totalLpIssued.toString()).to.equal(DEPOSIT_AMOUNT.toString()); // 1:1 on first deposit
+            expect(poolAccount.totalBorrowed.toString()).to.equal("0");
+            expect(poolAccount.totalDebtShares.toString()).to.equal("0");
+            expect(poolAccount.ltvPercent).to.equal(75);
 
             const position = await program.account.userPosition.fetch(userPositionPda);
             expect(position.authority.toString()).to.equal(authority.publicKey.toString());
-            expect(position.pool.toString()).to.equal(lendingAccountPda.toString());
+            expect(position.pool.toString()).to.equal(pool.toString());
             expect(position.depositedAmount.toString()).to.equal(DEPOSIT_AMOUNT.toString());
             expect(position.lpTokensOwed.toString()).to.equal(DEPOSIT_AMOUNT.toString());
             expect(position.debtShares.toString()).to.equal("0");
@@ -49,18 +49,18 @@ describe("deposit and withdraw", () => {
         });
 
         it("asserts pool and position state after full withdraw", async () => {
-            const { program, mint, lendingAccountPda, lendingVaultPda, userPositionPda, userTokenAccount, authority, connection } = setup;
+            const { program, mint, pool, lendingVaultPda, userPositionPda, userTokenAccount, authority, connection } = setup;
 
             await program.methods
                 .withdraw(new anchor.BN(DEPOSIT_AMOUNT))
-                .accounts({ mint, authority: authority.publicKey, userTokenAccount })
+                .accounts({ pool, mint, authority: authority.publicKey, userTokenAccount })
                 .signers([authority])
                 .rpc();
 
-            const pool = await program.account.pool.fetch(lendingAccountPda);
-            expect(pool.totalDeposited.toString()).to.equal("0");
-            expect(pool.totalLpIssued.toString()).to.equal("0");
-            expect(pool.totalBorrowed.toString()).to.equal("0");
+            const poolAccount = await program.account.pool.fetch(pool);
+            expect(poolAccount.totalDeposited.toString()).to.equal("0");
+            expect(poolAccount.totalLpIssued.toString()).to.equal("0");
+            expect(poolAccount.totalBorrowed.toString()).to.equal("0");
 
             const position = await program.account.userPosition.fetch(userPositionPda);
             expect(position.depositedAmount.toString()).to.equal("0");
@@ -88,24 +88,24 @@ describe("deposit and withdraw", () => {
             setup = await setupTest();
             await setup.program.methods
                 .deposit(new anchor.BN(DEPOSIT_AMOUNT))
-                .accounts({ mint: setup.mint, authority: setup.authority.publicKey, userTokenAccount: setup.userTokenAccount })
+                .accounts({ pool: setup.pool, mint: setup.mint, authority: setup.authority.publicKey, userTokenAccount: setup.userTokenAccount })
                 .signers([setup.authority])
                 .rpc();
         });
 
         it("asserts correct state after partial withdraw (40 of 100 tokens)", async () => {
-            const { program, mint, lendingAccountPda, lendingVaultPda, userPositionPda, userTokenAccount, authority, connection } = setup;
+            const { program, mint, pool, lendingVaultPda, userPositionPda, userTokenAccount, authority, connection } = setup;
 
             await program.methods
                 .withdraw(new anchor.BN(FIRST_WITHDRAW))
-                .accounts({ mint, authority: authority.publicKey, userTokenAccount })
+                .accounts({ pool, mint, authority: authority.publicKey, userTokenAccount })
                 .signers([authority])
                 .rpc();
 
-            const pool = await program.account.pool.fetch(lendingAccountPda);
-            expect(pool.totalDeposited.toString()).to.equal((DEPOSIT_AMOUNT - FIRST_WITHDRAW).toString());
-            expect(pool.totalLpIssued.toString()).to.equal((DEPOSIT_AMOUNT - FIRST_WITHDRAW).toString());
-            expect(pool.totalBorrowed.toString()).to.equal("0");
+            const poolAccount = await program.account.pool.fetch(pool);
+            expect(poolAccount.totalDeposited.toString()).to.equal((DEPOSIT_AMOUNT - FIRST_WITHDRAW).toString());
+            expect(poolAccount.totalLpIssued.toString()).to.equal((DEPOSIT_AMOUNT - FIRST_WITHDRAW).toString());
+            expect(poolAccount.totalBorrowed.toString()).to.equal("0");
 
             const position = await program.account.userPosition.fetch(userPositionPda);
             expect(position.depositedAmount.toString()).to.equal((DEPOSIT_AMOUNT - FIRST_WITHDRAW).toString());
@@ -120,17 +120,17 @@ describe("deposit and withdraw", () => {
         });
 
         it("asserts correct state after withdrawing the remainder (60 tokens)", async () => {
-            const { program, mint, lendingAccountPda, lendingVaultPda, userPositionPda, userTokenAccount, authority, connection } = setup;
+            const { program, mint, pool, lendingVaultPda, userPositionPda, userTokenAccount, authority, connection } = setup;
 
             await program.methods
                 .withdraw(new anchor.BN(SECOND_WITHDRAW))
-                .accounts({ mint, authority: authority.publicKey, userTokenAccount })
+                .accounts({ pool, mint, authority: authority.publicKey, userTokenAccount })
                 .signers([authority])
                 .rpc();
 
-            const pool = await program.account.pool.fetch(lendingAccountPda);
-            expect(pool.totalDeposited.toString()).to.equal("0");
-            expect(pool.totalLpIssued.toString()).to.equal("0");
+            const poolAccount = await program.account.pool.fetch(pool);
+            expect(poolAccount.totalDeposited.toString()).to.equal("0");
+            expect(poolAccount.totalLpIssued.toString()).to.equal("0");
 
             const position = await program.account.userPosition.fetch(userPositionPda);
             expect(position.depositedAmount.toString()).to.equal("0");
@@ -162,21 +162,21 @@ describe("deposit and withdraw", () => {
 
             await setup.program.methods
                 .deposit(new anchor.BN(DEPOSIT_A))
-                .accounts({ mint: setup.mint, authority: lenderA.authority.publicKey, userTokenAccount: lenderA.userTokenAccount })
+                .accounts({ pool: setup.pool, mint: setup.mint, authority: lenderA.authority.publicKey, userTokenAccount: lenderA.userTokenAccount })
                 .signers([lenderA.authority])
                 .rpc();
             await setup.program.methods
                 .deposit(new anchor.BN(DEPOSIT_B))
-                .accounts({ mint: setup.mint, authority: lenderB.authority.publicKey, userTokenAccount: lenderB.userTokenAccount })
+                .accounts({ pool: setup.pool, mint: setup.mint, authority: lenderB.authority.publicKey, userTokenAccount: lenderB.userTokenAccount })
                 .signers([lenderB.authority])
                 .rpc();
         });
 
         it("asserts pool totals reflect both deposits", async () => {
-            const pool = await setup.program.account.pool.fetch(setup.lendingAccountPda);
-            expect(pool.totalDeposited.toString()).to.equal((DEPOSIT_A + DEPOSIT_B).toString());
-            expect(pool.totalLpIssued.toString()).to.equal((DEPOSIT_A + DEPOSIT_B).toString());
-            expect(pool.totalBorrowed.toString()).to.equal("0");
+            const poolAccount = await setup.program.account.pool.fetch(setup.pool);
+            expect(poolAccount.totalDeposited.toString()).to.equal((DEPOSIT_A + DEPOSIT_B).toString());
+            expect(poolAccount.totalLpIssued.toString()).to.equal((DEPOSIT_A + DEPOSIT_B).toString());
+            expect(poolAccount.totalBorrowed.toString()).to.equal("0");
 
             const positionA = await setup.program.account.userPosition.fetch(lenderA.userPositionPda);
             expect(positionA.depositedAmount.toString()).to.equal(DEPOSIT_A.toString());
@@ -193,13 +193,13 @@ describe("deposit and withdraw", () => {
         it("lender A does a full withdraw — pool reflects only lender B remaining", async () => {
             await setup.program.methods
                 .withdraw(new anchor.BN(WITHDRAW_A))
-                .accounts({ mint: setup.mint, authority: lenderA.authority.publicKey, userTokenAccount: lenderA.userTokenAccount })
+                .accounts({ pool: setup.pool, mint: setup.mint, authority: lenderA.authority.publicKey, userTokenAccount: lenderA.userTokenAccount })
                 .signers([lenderA.authority])
                 .rpc();
 
-            const pool = await setup.program.account.pool.fetch(setup.lendingAccountPda);
-            expect(pool.totalDeposited.toString()).to.equal(DEPOSIT_B.toString());
-            expect(pool.totalLpIssued.toString()).to.equal(DEPOSIT_B.toString());
+            const poolAccount = await setup.program.account.pool.fetch(setup.pool);
+            expect(poolAccount.totalDeposited.toString()).to.equal(DEPOSIT_B.toString());
+            expect(poolAccount.totalLpIssued.toString()).to.equal(DEPOSIT_B.toString());
 
             const positionA = await setup.program.account.userPosition.fetch(lenderA.userPositionPda);
             expect(positionA.depositedAmount.toString()).to.equal("0");
@@ -215,13 +215,13 @@ describe("deposit and withdraw", () => {
         it("lender B does a partial withdraw — correct remaining pool state", async () => {
             await setup.program.methods
                 .withdraw(new anchor.BN(WITHDRAW_B_PARTIAL))
-                .accounts({ mint: setup.mint, authority: lenderB.authority.publicKey, userTokenAccount: lenderB.userTokenAccount })
+                .accounts({ pool: setup.pool, mint: setup.mint, authority: lenderB.authority.publicKey, userTokenAccount: lenderB.userTokenAccount })
                 .signers([lenderB.authority])
                 .rpc();
 
-            const pool = await setup.program.account.pool.fetch(setup.lendingAccountPda);
-            expect(pool.totalDeposited.toString()).to.equal((DEPOSIT_B - WITHDRAW_B_PARTIAL).toString());
-            expect(pool.totalLpIssued.toString()).to.equal((DEPOSIT_B - WITHDRAW_B_PARTIAL).toString());
+            const poolAccount = await setup.program.account.pool.fetch(setup.pool);
+            expect(poolAccount.totalDeposited.toString()).to.equal((DEPOSIT_B - WITHDRAW_B_PARTIAL).toString());
+            expect(poolAccount.totalLpIssued.toString()).to.equal((DEPOSIT_B - WITHDRAW_B_PARTIAL).toString());
 
             const positionB = await setup.program.account.userPosition.fetch(lenderB.userPositionPda);
             expect(positionB.depositedAmount.toString()).to.equal((DEPOSIT_B - WITHDRAW_B_PARTIAL).toString());

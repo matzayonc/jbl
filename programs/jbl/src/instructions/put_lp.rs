@@ -7,7 +7,7 @@ use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount};
 pub struct PutLp<'info> {
     #[account(
         mut,
-        seeds = [b"lending", pool.authority.as_ref(), mint.key().as_ref()],
+        seeds = [b"lending", mint.key().as_ref()],
         bump = pool.bump,
         has_one = mint,
         has_one = lp_mint,
@@ -108,7 +108,6 @@ pub fn put_lp_handler(ctx: Context<PutLp>, amount: u64) -> Result<()> {
             pool: ctx.accounts.pool.key(),
             deposited_amount: underlying,
             lp_tokens_owed: 0,
-            deposited_at_slot: Clock::get()?.slot,
             debt_shares: 0,
             bump: ctx.bumps.user_position,
         };

@@ -25,7 +25,7 @@ export function useLendingAccount(
             setError(null)
             try {
                 const [pda] = PublicKey.findProgramAddressSync(
-                    [new TextEncoder().encode(LENDING_SEED), authority!.toBytes(), mint!.toBytes()],
+                    [new TextEncoder().encode(LENDING_SEED), mint!.toBytes()],
                     program.programId,
                 )
                 const data = await program.account.pool.fetch(pda)

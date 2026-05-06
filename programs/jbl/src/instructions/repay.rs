@@ -8,7 +8,7 @@ use anchor_spl::token::{Mint, Token, TokenAccount};
 pub struct Repay<'info> {
     #[account(
         mut,
-        seeds = [b"lending", pool.authority.as_ref(), mint.key().as_ref()],
+        seeds = [b"lending", mint.key().as_ref()],
         bump = pool.bump,
         has_one = mint,
     )]

@@ -29,7 +29,7 @@ export interface TestSetup {
   authority: Keypair;
   payer: Keypair;
   mint: PublicKey;
-  lendingAccountPda: PublicKey;
+  pool: PublicKey;
   lendingVaultPda: PublicKey;
   lpMintPda: PublicKey;
   userPositionPda: PublicKey;
@@ -76,23 +76,23 @@ export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE): Promise
   );
 
   // Derive PDAs
-  const [lendingAccountPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("lending"), authority.publicKey.toBuffer(), mint.toBuffer()],
+  const [pool] = PublicKey.findProgramAddressSync(
+    [Buffer.from("lending"), mint.toBuffer()],
     program.programId
   );
 
   const [lendingVaultPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("pool"), lendingAccountPda.toBuffer()],
+    [Buffer.from("pool"), pool.toBuffer()],
     program.programId
   );
 
   const [lpMintPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("lp_mint"), lendingAccountPda.toBuffer()],
+    [Buffer.from("lp_mint"), pool.toBuffer()],
     program.programId
   );
 
   const [userPositionPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("user_position"), lendingAccountPda.toBuffer(), authority.publicKey.toBuffer()],
+    [Buffer.from("user_position"), pool.toBuffer(), authority.publicKey.toBuffer()],
     program.programId
   );
 
@@ -127,7 +127,7 @@ export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE): Promise
     authority,
     payer,
     mint,
-    lendingAccountPda,
+    pool,
     lendingVaultPda,
     lpMintPda,
     userPositionPda,
@@ -147,7 +147,7 @@ export interface Lender {
  * Airdrops SOL, creates a token account for the pool's mint, and mints 1000 tokens.
  */
 export async function createLender(setup: TestSetup): Promise<Lender> {
-  const { connection, payer, mint, authority: mintAuthority, program, lendingAccountPda } = setup;
+  const { connection, payer, mint, authority: mintAuthority, program, pool } = setup;
 
   const authority = Keypair.generate();
 
@@ -159,7 +159,7 @@ export async function createLender(setup: TestSetup): Promise<Lender> {
   await mintTo(connection, payer, mint, userTokenAccount, mintAuthority, 1_000_000_000);
 
   const [userPositionPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("user_position"), lendingAccountPda.toBuffer(), authority.publicKey.toBuffer()],
+    [Buffer.from("user_position"), pool.toBuffer(), authority.publicKey.toBuffer()],
     program.programId
   );
 

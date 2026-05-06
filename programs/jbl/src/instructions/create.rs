@@ -8,7 +8,7 @@ pub struct Create<'info> {
         init,
         payer = payer,
         space = 8 + Pool::INIT_SPACE,
-        seeds = [b"lending", authority.key().as_ref(), mint.key().as_ref()],
+        seeds = [b"lending", mint.key().as_ref()],
         bump
     )]
     pub pool: Account<'info, Pool>,
@@ -49,13 +49,7 @@ pub struct Create<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn create_handler(
-    ctx: Context<Create>,
-    m1: u64,
-    c1: u64,
-    m2: u64,
-    c2: u64,
-) -> Result<()> {
+pub fn create_handler(ctx: Context<Create>, m1: u64, c1: u64, m2: u64, c2: u64) -> Result<()> {
     let pool = &mut ctx.accounts.pool;
     let authority = &ctx.accounts.authority;
     let mint = &ctx.accounts.mint;

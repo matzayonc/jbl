@@ -2,12 +2,13 @@ import * as anchor from "@anchor-lang/core";
 import { getAccount } from "@solana/spl-token";
 import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { expect } from "chai";
-import { setupTest, createLender, TestSetup } from "./setup";
+import { setupTest, createLender, TestSetup } from "./utils";
 
 async function deposit(setup: TestSetup, amount: number) {
     await setup.program.methods
         .deposit(new anchor.BN(amount))
         .accounts({
+            pool: setup.pool,
             mint: setup.mint,
             authority: setup.authority.publicKey,
             userTokenAccount: setup.userTokenAccount,
@@ -31,17 +32,17 @@ describe("borrow", () => {
         });
 
         it("transfers tokens to borrower and updates pool and position state", async () => {
-            const { program, mint, lendingAccountPda, lendingVaultPda, userPositionPda, userTokenAccount, authority, connection } = setup;
+            const { program, mint, pool, lendingVaultPda, userPositionPda, userTokenAccount, authority, connection } = setup;
 
             await program.methods
                 .borrow(new anchor.BN(BORROW))
-                .accounts({ mint, authority: authority.publicKey, userTokenAccount })
+                .accounts({ pool, mint, authority: authority.publicKey, userTokenAccount })
                 .signers([authority])
                 .rpc();
 
-            const pool = await program.account.pool.fetch(lendingAccountPda);
-            expect(pool.totalBorrowed.toString()).to.equal(BORROW.toString());
-            expect(pool.totalDebtShares.toNumber()).to.be.greaterThan(0);
+            const poolAccount = await program.account.pool.fetch(pool);
+            expect(poolAccount.totalBorrowed.toString()).to.equal(BORROW.toString());
+            expect(poolAccount.totalDebtShares.toNumber()).to.be.greaterThan(0);
 
             const position = await program.account.userPosition.fetch(userPositionPda);
             expect(position.debtShares.toNumber()).to.be.greaterThan(0);
@@ -67,16 +68,16 @@ describe("borrow", () => {
         });
 
         it("succeeds borrowing exactly 75% of deposited collateral", async () => {
-            const { program, mint, lendingAccountPda, userPositionPda, authority, userTokenAccount } = setup;
+            const { program, mint, pool, userPositionPda, authority, userTokenAccount } = setup;
 
             await program.methods
                 .borrow(new anchor.BN(MAX_BORROW))
-                .accounts({ mint, authority: authority.publicKey, userTokenAccount })
+                .accounts({ pool, mint, authority: authority.publicKey, userTokenAccount })
                 .signers([authority])
                 .rpc();
 
-            const pool = await program.account.pool.fetch(lendingAccountPda);
-            expect(pool.totalBorrowed.toString()).to.equal(MAX_BORROW.toString());
+            const poolAccount = await program.account.pool.fetch(pool);
+            expect(poolAccount.totalBorrowed.toString()).to.equal(MAX_BORROW.toString());
 
             const position = await program.account.userPosition.fetch(userPositionPda);
             expect(position.debtShares.toNumber()).to.be.greaterThan(0);
@@ -101,7 +102,7 @@ describe("borrow", () => {
             try {
                 await program.methods
                     .borrow(new anchor.BN(OVER_LTV))
-                    .accounts({ mint, authority: authority.publicKey, userTokenAccount })
+                    .accounts({ pool: setup.pool, mint, authority: authority.publicKey, userTokenAccount })
                     .signers([authority])
                     .rpc();
                 expect.fail("expected borrow to be rejected");
@@ -128,7 +129,7 @@ describe("borrow", () => {
             try {
                 await program.methods
                     .borrow(new anchor.BN(0))
-                    .accounts({ mint, authority: authority.publicKey, userTokenAccount })
+                    .accounts({ pool: setup.pool, mint, authority: authority.publicKey, userTokenAccount })
                     .signers([authority])
                     .rpc();
                 expect.fail("expected borrow to be rejected");
@@ -161,7 +162,7 @@ describe("borrow", () => {
             try {
                 await program.methods
                     .borrow(new anchor.BN(50_000_000))
-                    .accounts({ mint, authority: stranger.publicKey, userTokenAccount: strangerTokenAccount })
+                    .accounts({ pool: setup.pool, mint, authority: stranger.publicKey, userTokenAccount: strangerTokenAccount })
                     .signers([stranger])
                     .rpc();
                 expect.fail("expected borrow to be rejected");
@@ -186,35 +187,35 @@ describe("borrow", () => {
         });
 
         it("first borrow succeeds", async () => {
-            const { program, mint, lendingAccountPda, userPositionPda, authority, userTokenAccount } = setup;
+            const { program, mint, pool, userPositionPda, authority, userTokenAccount } = setup;
 
             await program.methods
                 .borrow(new anchor.BN(FIRST_BORROW))
-                .accounts({ mint, authority: authority.publicKey, userTokenAccount })
+                .accounts({ pool, mint, authority: authority.publicKey, userTokenAccount })
                 .signers([authority])
                 .rpc();
 
-            const pool = await program.account.pool.fetch(lendingAccountPda);
-            expect(pool.totalBorrowed.toString()).to.equal(FIRST_BORROW.toString());
+            const poolAccount = await program.account.pool.fetch(pool);
+            expect(poolAccount.totalBorrowed.toString()).to.equal(FIRST_BORROW.toString());
 
             const position = await program.account.userPosition.fetch(userPositionPda);
             expect(position.debtShares.toNumber()).to.be.greaterThan(0);
         });
 
         it("second borrow on the same position accumulates correctly", async () => {
-            const { program, mint, lendingAccountPda, lendingVaultPda, userPositionPda, userTokenAccount, authority, connection } = setup;
+            const { program, mint, pool, lendingVaultPda, userPositionPda, userTokenAccount, authority, connection } = setup;
 
             const positionBefore = await program.account.userPosition.fetch(userPositionPda);
             const sharesBefore = positionBefore.debtShares.toNumber();
 
             await program.methods
                 .borrow(new anchor.BN(SECOND_BORROW))
-                .accounts({ mint, authority: authority.publicKey, userTokenAccount })
+                .accounts({ pool, mint, authority: authority.publicKey, userTokenAccount })
                 .signers([authority])
                 .rpc();
 
-            const pool = await program.account.pool.fetch(lendingAccountPda);
-            expect(pool.totalBorrowed.toNumber()).to.be.greaterThanOrEqual(FIRST_BORROW + SECOND_BORROW);
+            const poolAccount = await program.account.pool.fetch(pool);
+            expect(poolAccount.totalBorrowed.toNumber()).to.be.greaterThanOrEqual(FIRST_BORROW + SECOND_BORROW);
 
             const position = await program.account.userPosition.fetch(userPositionPda);
             expect(position.debtShares.toNumber()).to.be.greaterThan(sharesBefore);
@@ -241,7 +242,7 @@ describe("borrow", () => {
 
             await setup.program.methods
                 .borrow(new anchor.BN(FIRST_BORROW))
-                .accounts({ mint: setup.mint, authority: setup.authority.publicKey, userTokenAccount: setup.userTokenAccount })
+                .accounts({ pool: setup.pool, mint: setup.mint, authority: setup.authority.publicKey, userTokenAccount: setup.userTokenAccount })
                 .signers([setup.authority])
                 .rpc();
         });
@@ -252,7 +253,7 @@ describe("borrow", () => {
             try {
                 await program.methods
                     .borrow(new anchor.BN(SECOND_BORROW))
-                    .accounts({ mint, authority: authority.publicKey, userTokenAccount })
+                    .accounts({ pool: setup.pool, mint, authority: authority.publicKey, userTokenAccount })
                     .signers([authority])
                     .rpc();
                 expect.fail("expected second borrow to be rejected");
@@ -280,50 +281,50 @@ describe("borrow", () => {
 
             await setup.program.methods
                 .deposit(new anchor.BN(DEPOSIT_A))
-                .accounts({ mint: setup.mint, authority: lenderA.authority.publicKey, userTokenAccount: lenderA.userTokenAccount })
+                .accounts({ pool: setup.pool, mint: setup.mint, authority: lenderA.authority.publicKey, userTokenAccount: lenderA.userTokenAccount })
                 .signers([lenderA.authority])
                 .rpc();
 
             await setup.program.methods
                 .deposit(new anchor.BN(DEPOSIT_B))
-                .accounts({ mint: setup.mint, authority: lenderB.authority.publicKey, userTokenAccount: lenderB.userTokenAccount })
+                .accounts({ pool: setup.pool, mint: setup.mint, authority: lenderB.authority.publicKey, userTokenAccount: lenderB.userTokenAccount })
                 .signers([lenderB.authority])
                 .rpc();
         });
 
         it("lender A borrows within their LTV", async () => {
-            const { program, mint, lendingAccountPda, connection, lendingVaultPda } = setup;
+            const { program, mint, pool, connection, lendingVaultPda } = setup;
 
             await program.methods
                 .borrow(new anchor.BN(BORROW_A))
-                .accounts({ mint, authority: lenderA.authority.publicKey, userTokenAccount: lenderA.userTokenAccount })
+                .accounts({ pool, mint, authority: lenderA.authority.publicKey, userTokenAccount: lenderA.userTokenAccount })
                 .signers([lenderA.authority])
                 .rpc();
 
             const positionA = await program.account.userPosition.fetch(lenderA.userPositionPda);
             expect(positionA.debtShares.toNumber()).to.be.greaterThan(0);
 
-            const pool = await program.account.pool.fetch(lendingAccountPda);
-            expect(pool.totalBorrowed.toString()).to.equal(BORROW_A.toString());
+            const poolAccount = await program.account.pool.fetch(pool);
+            expect(poolAccount.totalBorrowed.toString()).to.equal(BORROW_A.toString());
 
             const vault = await getAccount(connection, lendingVaultPda);
             expect(Number(vault.amount)).to.equal(DEPOSIT_A + DEPOSIT_B - BORROW_A);
         });
 
         it("lender B borrows within their LTV — pool reflects cumulative debt", async () => {
-            const { program, mint, lendingAccountPda, connection, lendingVaultPda } = setup;
+            const { program, mint, pool, connection, lendingVaultPda } = setup;
 
             await program.methods
                 .borrow(new anchor.BN(BORROW_B))
-                .accounts({ mint, authority: lenderB.authority.publicKey, userTokenAccount: lenderB.userTokenAccount })
+                .accounts({ pool, mint, authority: lenderB.authority.publicKey, userTokenAccount: lenderB.userTokenAccount })
                 .signers([lenderB.authority])
                 .rpc();
 
             const positionB = await program.account.userPosition.fetch(lenderB.userPositionPda);
             expect(positionB.debtShares.toNumber()).to.be.greaterThan(0);
 
-            const pool = await program.account.pool.fetch(lendingAccountPda);
-            expect(pool.totalBorrowed.toNumber()).to.be.greaterThanOrEqual(BORROW_A + BORROW_B);
+            const poolAccount = await program.account.pool.fetch(pool);
+            expect(poolAccount.totalBorrowed.toNumber()).to.be.greaterThanOrEqual(BORROW_A + BORROW_B);
 
             const vault = await getAccount(connection, lendingVaultPda);
             expect(Number(vault.amount)).to.equal(DEPOSIT_A + DEPOSIT_B - BORROW_A - BORROW_B);

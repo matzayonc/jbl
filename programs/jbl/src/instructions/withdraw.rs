@@ -7,7 +7,7 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 pub struct Withdraw<'info> {
     #[account(
         mut,
-        seeds = [b"lending", pool.authority.as_ref(), mint.key().as_ref()],
+        seeds = [b"lending", mint.key().as_ref()],
         bump = pool.bump,
         has_one = mint,
     )]
@@ -96,15 +96,9 @@ pub fn withdraw_handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
 
     // ── 3. Transfer underlying tokens back to user ────────────────────────────
     let pool_bump = pool.bump;
-    let authority_key = pool.authority;
     let mint_key = ctx.accounts.mint.key();
 
-    let seeds = &[
-        b"lending" as &[u8],
-        authority_key.as_ref(),
-        mint_key.as_ref(),
-        &[pool_bump],
-    ];
+    let seeds = &[b"lending" as &[u8], mint_key.as_ref(), &[pool_bump]];
     let signer = &[&seeds[..]];
 
     let transfer_accounts = Transfer {

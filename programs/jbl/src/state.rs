@@ -69,8 +69,6 @@ pub struct UserPosition {
     pub deposited_amount: u64,
     /// LP tokens that will be minted when `take_lp` is called (pre-calculated at deposit time)
     pub lp_tokens_owed: u64,
-    /// Slot at which the deposit was made
-    pub deposited_at_slot: u64,
     /// Debt shares held by this user (0 if no active borrow).
     /// Current debt = debt_shares * pool.total_borrowed / pool.total_debt_shares
     pub debt_shares: u64,

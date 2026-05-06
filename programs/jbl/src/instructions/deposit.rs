@@ -6,7 +6,7 @@ use anchor_spl::token::{Mint, Token, TokenAccount};
 pub struct Deposit<'info> {
     #[account(
         mut,
-        seeds = [b"lending", pool.authority.as_ref(), mint.key().as_ref()],
+        seeds = [b"lending", mint.key().as_ref()],
         bump = pool.bump,
         has_one = mint,
     )]
@@ -105,7 +105,6 @@ pub fn deposit_handler(ctx: Context<Deposit>, amount: u64) -> Result<()> {
             pool: ctx.accounts.pool.key(),
             deposited_amount: amount,
             lp_tokens_owed,
-            deposited_at_slot: Clock::get()?.slot,
             debt_shares: 0,
             bump: ctx.bumps.user_position,
         };

@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useWalletConnection } from '@solana/react-hooks'
 import { PublicKey } from '@solana/web3.js'
-import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import { getAssociatedTokenAddressSync } from '@solana/spl-token'
 import * as anchor from '@anchor-lang/core'
-import { Buffer } from 'buffer'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '../ui/empty'
 import { useLendingAccounts } from '../../hooks/useLendingAccounts'
@@ -111,7 +110,7 @@ export function LendingInfoCard() {
             const lamports = new anchor.BN(parseFloat(amount) * TOKEN_DECIMALS)
             const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const tx = await program.methods.deposit(lamports).accounts({ mint: userAccount.mint, userTokenAccount } as any).rpc(RPC_OPTS)
+            const tx = await program.methods.deposit(lamports).accounts({ pool: userAccount.publicKey, pool: userAccount.publicKey, mint: userAccount.mint, authority: userPublicKey, userTokenAccount } as any).rpc(RPC_OPTS)
             console.log('Supply tx:', tx)
             setAmount('')
             refetch()
@@ -131,7 +130,7 @@ export function LendingInfoCard() {
             const lamports = new anchor.BN(parseFloat(amount) * TOKEN_DECIMALS)
             const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const tx = await program.methods.borrow(lamports).accounts({ mint: userAccount.mint, userTokenAccount } as any).rpc(RPC_OPTS)
+            const tx = await program.methods.borrow(lamports).accounts({ pool: userAccount.publicKey, pool: userAccount.publicKey, mint: userAccount.mint, authority: userPublicKey, userTokenAccount } as any).rpc(RPC_OPTS)
             console.log('Borrow tx:', tx)
             setAmount('')
             refetch()
@@ -151,7 +150,7 @@ export function LendingInfoCard() {
             const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const lamports = new anchor.BN(parseFloat(amount || '0') * TOKEN_DECIMALS)
-            const tx = await program.methods.repay(lamports).accounts({ mint: userAccount.mint, userTokenAccount } as any).rpc(RPC_OPTS)
+            const tx = await program.methods.repay(lamports).accounts({ pool: userAccount.publicKey, pool: userAccount.publicKey, mint: userAccount.mint, authority: userPublicKey, userTokenAccount } as any).rpc(RPC_OPTS)
             console.log('Repay tx:', tx)
             setAmount('')
             refetch()
@@ -170,38 +169,9 @@ export function LendingInfoCard() {
         setTxError(null)
         try {
             const lamports = new anchor.BN(parseFloat(amount) * TOKEN_DECIMALS)
-            const programId = program.programId
-            const [pool] = PublicKey.findProgramAddressSync(
-                [Buffer.from('lending'), userPublicKey.toBytes(), userAccount.mint.toBytes()],
-                programId,
-            )
-            const [vault] = PublicKey.findProgramAddressSync(
-                [Buffer.from('pool'), pool.toBytes()],
-                programId,
-            )
-            const [userPosition] = PublicKey.findProgramAddressSync(
-                [Buffer.from('user_position'), pool.toBytes(), userPublicKey.toBytes()],
-                programId,
-            )
             const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
-            const userLpTokenAccount = getAssociatedTokenAddressSync(userAccount.lpMint, userPublicKey)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const tx = await program.methods.withdraw(lamports).accounts({
-                pool,
-                mint: userAccount.mint,
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                lp_mint: userAccount.lpMint,
-                authority: userPublicKey,
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                user_token_account: userTokenAccount,
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                user_lp_token_account: userLpTokenAccount,
-                vault,
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                user_position: userPosition,
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                token_program: TOKEN_PROGRAM_ID,
-            } as any).rpc(RPC_OPTS)
+            const tx = await program.methods.withdraw(lamports).accounts({ pool: userAccount.publicKey, pool: userAccount.publicKey, mint: userAccount.mint, authority: userPublicKey, userTokenAccount } as any).rpc(RPC_OPTS)
             console.log('Withdraw tx:', tx)
             setAmount('')
             refetch()
@@ -219,26 +189,9 @@ export function LendingInfoCard() {
         setTxError(null)
         try {
             const lamports = new anchor.BN(parseFloat(amount) * TOKEN_DECIMALS)
-            const programId = program.programId
-            const [pool] = PublicKey.findProgramAddressSync(
-                [Buffer.from('lending'), userPublicKey.toBytes(), userAccount.mint.toBytes()],
-                programId,
-            )
-            const [userPosition] = PublicKey.findProgramAddressSync(
-                [Buffer.from('user_position'), pool.toBytes(), userPublicKey.toBytes()],
-                programId,
-            )
             const userLpTokenAccount = getAssociatedTokenAddressSync(userAccount.lpMint, userPublicKey)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const tx = await program.methods.takeLp(lamports).accounts({
-                pool,
-                mint: userAccount.mint,
-                lpMint: userAccount.lpMint,
-                authority: userPublicKey,
-                userPosition: userPosition,
-                userLpTokenAccount: userLpTokenAccount,
-                tokenProgram: TOKEN_PROGRAM_ID,
-            } as any).rpc(RPC_OPTS)
+            const tx = await program.methods.takeLp(lamports).accounts({ pool: userAccount.publicKey, pool: userAccount.publicKey, mint: userAccount.mint, authority: userPublicKey, userLpTokenAccount } as any).rpc(RPC_OPTS)
             console.log('TakeLp tx:', tx)
             setAmount('')
             refetch()
