@@ -1,23 +1,33 @@
-use crate::{math::compute_interest, UtilizationFeeConfig};
+use crate::{math::compute_interest, withdrawal_queue::WithdrawalQueue, UtilizationFeeConfig};
 use anchor_lang::prelude::*;
 
-#[account]
-#[derive(InitSpace)]
+/// Pool account stored as zero-copy to avoid copying the ~40 KB withdrawal
+/// queue onto the stack during Borsh deserialization.
+///
+/// Field ordering is chosen to eliminate implicit repr(C) padding:
+///   offsets 0-95    : three Pubkeys  (3 × 32 = 96 bytes, align 1)
+///   offsets 96-167  : five u64/i64  (5 × 8 = 40) + fee_config (4×8 = 32)
+///   offsets 168-170 : ltv_percent, pool_signer_bump, lp_mint_bump  (3 × u8)
+///   offsets 171-175 : _pad [u8;5]  (align withdrawal_queue to 8)
+///   offsets 176-...  : WithdrawalQueue  (1024 entries × 40 bytes = 40960 + 8 header)
+#[account(zero_copy)]
 pub struct Pool {
     pub authority: Pubkey,
     pub mint: Pubkey,
-    pub lp_mint: Pubkey, // The LP token mint for this lending pool
+    pub lp_mint: Pubkey,
     pub total_deposited: u64,
     pub total_borrowed: u64,
-    /// Sum of all users' debt shares.
     pub total_debt_shares: u64,
-    /// Unix timestamp of the last interest accrual on total_borrowed.
     pub last_accrual_ts: i64,
-    pub total_lp_issued: u64, // Total LP tokens issued
-    pub ltv_percent: u8,      // Loan-to-Value ratio as percentage (e.g., 75 for 75%)
+    pub total_lp_issued: u64,
     pub fee_config: UtilizationFeeConfig,
-    pub bump: u8,
+    pub ltv_percent: u8,
+    /// Bump seed for the `pool_signer` PDA (`seeds = [b"pool_signer", pool.key()]`).
+    /// Used to sign vault-transfer and LP-mint CPIs on behalf of the pool.
+    pub pool_signer_bump: u8,
     pub lp_mint_bump: u8,
+    _pad: [u8; 5], // explicit padding — no implicit/uninitialised bytes
+    pub withdrawal_queue: WithdrawalQueue,
 }
 
 impl Pool {

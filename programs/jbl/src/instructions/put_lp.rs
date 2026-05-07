@@ -5,14 +5,8 @@ use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount};
 
 #[derive(Accounts)]
 pub struct PutLp<'info> {
-    #[account(
-        mut,
-        seeds = [b"lending", mint.key().as_ref()],
-        bump = pool.bump,
-        has_one = mint,
-        has_one = lp_mint,
-    )]
-    pub pool: Account<'info, Pool>,
+    #[account(mut)]
+    pub pool: AccountLoader<'info, Pool>,
 
     /// The mint of the underlying token
     pub mint: Account<'info, Mint>,
@@ -21,7 +15,7 @@ pub struct PutLp<'info> {
     #[account(
         mut,
         seeds = [b"lp_mint", pool.key().as_ref()],
-        bump = pool.lp_mint_bump,
+        bump,
     )]
     pub lp_mint: Account<'info, Mint>,
 
@@ -59,46 +53,46 @@ pub fn put_lp_handler(ctx: Context<PutLp>, amount: u64) -> Result<()> {
         crate::error::ErrorCode::InsufficientFunds
     );
 
-    // ── 1. Accrue interest on the pool ────────────────────────────────────────
+    // ── 1. Accrue interest and read pool values ───────────────────────────────
     let current_ts = Clock::get()?.unix_timestamp;
-    ctx.accounts.pool.accrue_interest(current_ts)?;
+    ctx.accounts.pool.load_mut()?.accrue_interest(current_ts)?;
 
-    let pool = &ctx.accounts.pool;
-    require!(
-        pool.total_lp_issued > 0,
-        crate::error::ErrorCode::InvalidAmount
-    );
+    let (total_deposited, total_lp_issued) = {
+        let pool = ctx.accounts.pool.load()?;
+        require!(pool.total_lp_issued > 0, crate::error::ErrorCode::InvalidAmount);
+        (pool.total_deposited, pool.total_lp_issued)
+    };
 
     // ── 2. Calculate underlying tokens this LP amount represents ─────────────
-    // underlying = lp_amount * total_deposited / total_lp_issued
     let underlying = (amount as u128)
-        .checked_mul(pool.total_deposited as u128)
+        .checked_mul(total_deposited as u128)
         .ok_or(crate::error::ErrorCode::MathOverflow)?
-        .checked_div(pool.total_lp_issued as u128)
+        .checked_div(total_lp_issued as u128)
         .ok_or(crate::error::ErrorCode::MathOverflow)? as u64;
-
     require!(underlying > 0, crate::error::ErrorCode::InvalidAmount);
 
     // ── 3. Burn LP tokens from user's wallet ──────────────────────────────────
-    let burn_accounts = Burn {
-        mint: ctx.accounts.lp_mint.to_account_info(),
-        from: ctx.accounts.user_lp_token_account.to_account_info(),
-        authority: ctx.accounts.authority.to_account_info(),
-    };
     token::burn(
         CpiContext::new(
             ctx.accounts.token_program.to_account_info().key.clone(),
-            burn_accounts,
+            Burn {
+                mint: ctx.accounts.lp_mint.to_account_info(),
+                from: ctx.accounts.user_lp_token_account.to_account_info(),
+                authority: ctx.accounts.authority.to_account_info(),
+            },
         ),
         amount,
     )?;
 
     // ── 4. Update pool state ──────────────────────────────────────────────────
-    let pool = &mut ctx.accounts.pool;
-    pool.total_lp_issued = pool
-        .total_lp_issued
-        .checked_sub(amount)
-        .ok_or(crate::error::ErrorCode::MathOverflow)?;
+    let new_total_lp = {
+        let mut pool = ctx.accounts.pool.load_mut()?;
+        pool.total_lp_issued = pool
+            .total_lp_issued
+            .checked_sub(amount)
+            .ok_or(crate::error::ErrorCode::MathOverflow)?;
+        pool.total_lp_issued
+    };
 
     // ── 5. Credit the user's position ─────────────────────────────────────────
     let position = &mut ctx.accounts.user_position;
@@ -122,7 +116,7 @@ pub fn put_lp_handler(ctx: Context<PutLp>, amount: u64) -> Result<()> {
         "Put {} LP tokens. Credited {} underlying tokens to position. Pool total_lp_issued: {}",
         amount,
         underlying,
-        ctx.accounts.pool.total_lp_issued,
+        new_total_lp,
     );
 
     Ok(())

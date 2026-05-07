@@ -5,33 +5,26 @@ import type { LendingAccountData } from '../types/lending'
 
 export type { LendingAccountData }
 
-const LENDING_SEED = 'lending'
-
-/** Fetch a single lending account by authority + mint (PDA derivation). */
+/** Fetch a single lending pool account by its public key. */
 export function useLendingAccount(
-    authority: PublicKey | null,
-    mint: PublicKey | null,
+    poolAddress: PublicKey | null,
 ): { account: LendingAccountData | null; loading: boolean; error: string | null } {
     const [account, setAccount] = useState<LendingAccountData | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
-        if (!authority || !mint) return
+        if (!poolAddress) return
         let cancelled = false
 
         async function fetchAccount() {
             setLoading(true)
             setError(null)
             try {
-                const [pda] = PublicKey.findProgramAddressSync(
-                    [new TextEncoder().encode(LENDING_SEED), mint!.toBytes()],
-                    program.programId,
-                )
-                const data = await program.account.pool.fetch(pda)
+                const data = await program.account.pool.fetch(poolAddress!)
                 if (!cancelled) {
                     setAccount({
-                        publicKey: pda,
+                        publicKey: poolAddress!,
                         authority: data.authority,
                         mint: data.mint,
                         lpMint: data.lpMint,
@@ -39,7 +32,7 @@ export function useLendingAccount(
                         totalBorrowed: BigInt(data.totalBorrowed.toString()),
                         totalLpIssued: BigInt(data.totalLpIssued.toString()),
                         lastAccrualTs: BigInt(data.lastAccrualTs.toString()),
-                        bump: data.bump,
+                        poolSignerBump: data.poolSignerBump,
                         lpMintBump: data.lpMintBump,
                         feeConfig: {
                             m1: BigInt(data.feeConfig.m1.toString()),
@@ -58,7 +51,7 @@ export function useLendingAccount(
 
         fetchAccount()
         return () => { cancelled = true }
-    }, [authority?.toBase58(), mint?.toBase58()])
+    }, [poolAddress?.toBase58()])
 
     return { account, loading, error }
 }

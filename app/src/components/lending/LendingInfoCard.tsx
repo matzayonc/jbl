@@ -102,6 +102,14 @@ export function LendingInfoCard() {
     const alreadyProcessed = (err: unknown) =>
         String(err).includes('already been processed')
 
+    function derivePoolSigner(poolPubkey: PublicKey): PublicKey {
+        const [poolSigner] = PublicKey.findProgramAddressSync(
+            [Buffer.from('pool_signer'), poolPubkey.toBytes()],
+            program!.programId,
+        )
+        return poolSigner
+    }
+
     async function handleSupply() {
         if (!program || !userAccount || !userPublicKey || !amount) return
         setIsSupplying(true)
@@ -110,7 +118,7 @@ export function LendingInfoCard() {
             const lamports = new anchor.BN(parseFloat(amount) * TOKEN_DECIMALS)
             const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const tx = await program.methods.deposit(lamports).accounts({ pool: userAccount.publicKey, pool: userAccount.publicKey, mint: userAccount.mint, authority: userPublicKey, userTokenAccount } as any).rpc(RPC_OPTS)
+            const tx = await program.methods.deposit(lamports).accounts({ pool: userAccount.publicKey, mint: userAccount.mint, authority: userPublicKey, userTokenAccount } as any).rpc(RPC_OPTS)
             console.log('Supply tx:', tx)
             setAmount('')
             refetch()
@@ -128,9 +136,10 @@ export function LendingInfoCard() {
         setTxError(null)
         try {
             const lamports = new anchor.BN(parseFloat(amount) * TOKEN_DECIMALS)
+            const poolSigner = derivePoolSigner(userAccount.publicKey)
             const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const tx = await program.methods.borrow(lamports).accounts({ pool: userAccount.publicKey, pool: userAccount.publicKey, mint: userAccount.mint, authority: userPublicKey, userTokenAccount } as any).rpc(RPC_OPTS)
+            const tx = await program.methods.borrow(lamports).accounts({ pool: userAccount.publicKey, poolSigner, mint: userAccount.mint, authority: userPublicKey, userTokenAccount } as any).rpc(RPC_OPTS)
             console.log('Borrow tx:', tx)
             setAmount('')
             refetch()
@@ -150,7 +159,7 @@ export function LendingInfoCard() {
             const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const lamports = new anchor.BN(parseFloat(amount || '0') * TOKEN_DECIMALS)
-            const tx = await program.methods.repay(lamports).accounts({ pool: userAccount.publicKey, pool: userAccount.publicKey, mint: userAccount.mint, authority: userPublicKey, userTokenAccount } as any).rpc(RPC_OPTS)
+            const tx = await program.methods.repay(lamports).accounts({ pool: userAccount.publicKey, mint: userAccount.mint, authority: userPublicKey, userTokenAccount } as any).rpc(RPC_OPTS)
             console.log('Repay tx:', tx)
             setAmount('')
             refetch()
@@ -169,9 +178,10 @@ export function LendingInfoCard() {
         setTxError(null)
         try {
             const lamports = new anchor.BN(parseFloat(amount) * TOKEN_DECIMALS)
+            const poolSigner = derivePoolSigner(userAccount.publicKey)
             const userTokenAccount = getAssociatedTokenAddressSync(userAccount.mint, userPublicKey)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const tx = await program.methods.withdraw(lamports).accounts({ pool: userAccount.publicKey, pool: userAccount.publicKey, mint: userAccount.mint, authority: userPublicKey, userTokenAccount } as any).rpc(RPC_OPTS)
+            const tx = await program.methods.withdraw(lamports).accounts({ pool: userAccount.publicKey, poolSigner, mint: userAccount.mint, authority: userPublicKey, userTokenAccount } as any).rpc(RPC_OPTS)
             console.log('Withdraw tx:', tx)
             setAmount('')
             refetch()
@@ -189,9 +199,10 @@ export function LendingInfoCard() {
         setTxError(null)
         try {
             const lamports = new anchor.BN(parseFloat(amount) * TOKEN_DECIMALS)
+            const poolSigner = derivePoolSigner(userAccount.publicKey)
             const userLpTokenAccount = getAssociatedTokenAddressSync(userAccount.lpMint, userPublicKey)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const tx = await program.methods.takeLp(lamports).accounts({ pool: userAccount.publicKey, pool: userAccount.publicKey, mint: userAccount.mint, authority: userPublicKey, userLpTokenAccount } as any).rpc(RPC_OPTS)
+            const tx = await program.methods.takeLp(lamports).accounts({ pool: userAccount.publicKey, poolSigner, mint: userAccount.mint, authority: userPublicKey, userLpTokenAccount } as any).rpc(RPC_OPTS)
             console.log('TakeLp tx:', tx)
             setAmount('')
             refetch()

@@ -1,12 +1,15 @@
 import * as anchor from "@anchor-lang/core";
 import { Program, AnchorProvider, BN } from "@anchor-lang/core";
-import { PublicKey, Keypair, LAMPORTS_PER_SOL, Connection } from "@solana/web3.js";
+import { PublicKey, Keypair, LAMPORTS_PER_SOL, Connection, SystemProgram } from "@solana/web3.js";
 import {
   createMint,
   createAssociatedTokenAccount,
   mintTo,
 } from "@solana/spl-token";
 import { Jbl } from "../target/types/jbl";
+
+/** Size of the Pool account on-chain: 8-byte discriminant + Pool struct (41 144 bytes). */
+export const POOL_SPACE = 8 + 41144;
 
 export interface FeeCurve {
   m1: BN;
@@ -30,6 +33,7 @@ export interface TestSetup {
   payer: Keypair;
   mint: PublicKey;
   pool: PublicKey;
+  poolSignerPda: PublicKey;
   lendingVaultPda: PublicKey;
   lpMintPda: PublicKey;
   userPositionPda: PublicKey;
@@ -75,9 +79,14 @@ export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE): Promise
     6
   );
 
-  // Derive PDAs
-  const [pool] = PublicKey.findProgramAddressSync(
-    [Buffer.from("lending"), mint.toBuffer()],
+  // Pool is a keypair account (too large for on-chain PDA allocation via CPI).
+  // Pre-create it in a top-level transaction so the runtime has no size restriction.
+  const poolKeypair = Keypair.generate();
+  const pool = poolKeypair.publicKey;
+
+  // Derive pool_signer PDA (used as vault/lp_mint authority)
+  const [poolSignerPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("pool_signer"), pool.toBuffer()],
     program.programId
   );
 
@@ -113,11 +122,29 @@ export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE): Promise
     1_000_000_000 // 1000 tokens
   );
 
-  // Create the lending pool
+  // Pre-create the pool account via SystemProgram.createAccount (top-level instruction,
+  // no CPI size limit).  Pool keypair signs this instruction.
+  const poolRent = await connection.getMinimumBalanceForRentExemption(POOL_SPACE);
+  const createPoolIx = SystemProgram.createAccount({
+    fromPubkey: payer.publicKey,
+    newAccountPubkey: pool,
+    lamports: poolRent,
+    space: POOL_SPACE,
+    programId: program.programId,
+  });
+
+  // Create the lending pool — pool_signer PDA and vault/lp_mint are also created here.
   await program.methods
     .create(feeCurve.m1, feeCurve.c1, feeCurve.m2, feeCurve.c2)
-    .accounts({ mint, authority: authority.publicKey, payer: payer.publicKey })
-    .signers([payer, authority])
+    .accounts({
+      pool,
+      poolSigner: poolSignerPda,
+      mint,
+      authority: authority.publicKey,
+      payer: payer.publicKey,
+    })
+    .preInstructions([createPoolIx])
+    .signers([payer, authority, poolKeypair])
     .rpc();
 
   return {
@@ -128,6 +155,7 @@ export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE): Promise
     payer,
     mint,
     pool,
+    poolSignerPda,
     lendingVaultPda,
     lpMintPda,
     userPositionPda,

@@ -2,23 +2,32 @@ use crate::state::Pool;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
+pub const POOL_SPACE: usize = 8 + std::mem::size_of::<Pool>();
+
 #[derive(Accounts)]
 pub struct Create<'info> {
+    /// The pool data account.  Must be pre-allocated (size = POOL_SPACE) and
+    /// owned by this program before calling `create`.  Pre-allocating in a
+    /// separate transaction bypasses the 10 KB CPI account-creation limit.
+    #[account(zero)]
+    pub pool: AccountLoader<'info, Pool>,
+
+    /// PDA used as the authority for the vault and LP mint.
+    /// Derived deterministically from the pool's public key so it is still
+    /// unique even though the pool itself is a keypair account.
+    /// CHECK: only used as authority — no data stored here.
     #[account(
-        init,
-        payer = payer,
-        space = 8 + Pool::INIT_SPACE,
-        seeds = [b"lending", mint.key().as_ref()],
+        seeds = [b"pool_signer", pool.key().as_ref()],
         bump
     )]
-    pub pool: Account<'info, Pool>,
+    pub pool_signer: UncheckedAccount<'info>,
 
     /// The token vault for holding deposited tokens
     #[account(
         init,
         payer = payer,
         token::mint = mint,
-        token::authority = pool,
+        token::authority = pool_signer,
         seeds = [b"pool", pool.key().as_ref()],
         bump
     )]
@@ -29,7 +38,7 @@ pub struct Create<'info> {
         init,
         payer = payer,
         mint::decimals = mint.decimals,
-        mint::authority = pool,
+        mint::authority = pool_signer,
         seeds = [b"lp_mint", pool.key().as_ref()],
         bump
     )]
@@ -50,33 +59,27 @@ pub struct Create<'info> {
 }
 
 pub fn create_handler(ctx: Context<Create>, m1: u64, c1: u64, m2: u64, c2: u64) -> Result<()> {
-    let pool = &mut ctx.accounts.pool;
-    let authority = &ctx.accounts.authority;
-    let mint = &ctx.accounts.mint;
-    let lp_mint = &ctx.accounts.lp_mint;
-    let bump = ctx.bumps.pool;
-    let lp_mint_bump = ctx.bumps.lp_mint;
+    let mut pool = ctx.accounts.pool.load_init()?;
 
-    **pool = Pool {
-        authority: authority.key(),
-        mint: mint.key(),
-        lp_mint: lp_mint.key(),
-        total_deposited: 0,
-        total_borrowed: 0,
-        total_debt_shares: 0,
-        last_accrual_ts: Clock::get()?.unix_timestamp,
-        total_lp_issued: 0,
-        ltv_percent: 75, // Default to 75% LTV
-        fee_config: crate::fees::UtilizationFeeConfig { m1, c1, m2, c2 },
-        bump,
-        lp_mint_bump,
-    };
+    pool.authority = ctx.accounts.authority.key();
+    pool.mint = ctx.accounts.mint.key();
+    pool.lp_mint = ctx.accounts.lp_mint.key();
+    pool.total_deposited = 0;
+    pool.total_borrowed = 0;
+    pool.total_debt_shares = 0;
+    pool.last_accrual_ts = Clock::get()?.unix_timestamp;
+    pool.total_lp_issued = 0;
+    pool.ltv_percent = 75;
+    pool.fee_config = crate::fees::UtilizationFeeConfig { m1, c1, m2, c2 };
+    pool.pool_signer_bump = ctx.bumps.pool_signer;
+    pool.lp_mint_bump = ctx.bumps.lp_mint;
+    // withdrawal_queue is zero-initialised by load_init (head=0, tail=0)
 
     msg!(
-        "Created lending account for authority: {} with mint: {} and LP mint: {} at slot: {}",
-        authority.key(),
-        mint.key(),
-        lp_mint.key(),
+        "Created lending pool for authority: {} with mint: {} and LP mint: {} at slot: {}",
+        ctx.accounts.authority.key(),
+        ctx.accounts.mint.key(),
+        ctx.accounts.lp_mint.key(),
         Clock::get()?.slot
     );
 

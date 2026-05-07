@@ -4,6 +4,7 @@ pub mod fees;
 pub mod instructions;
 pub mod math;
 pub mod state;
+pub mod withdrawal_queue;
 
 use anchor_lang::prelude::*;
 
@@ -45,5 +46,9 @@ pub mod jbl {
 
     pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         withdraw_handler(ctx, amount)
+    }
+
+    pub fn process_queue_entry(ctx: Context<ProcessQueueEntry>) -> Result<()> {
+        process_queue_entry_handler(ctx)
     }
 }

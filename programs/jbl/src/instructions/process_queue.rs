@@ -1,11 +1,14 @@
 use crate::math::shares_to_amount;
 use crate::state::{Pool, UserPosition};
-use crate::withdrawal_queue::WithdrawalQueueEntry;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
+/// Anyone may call this instruction to attempt to fulfil the next pending
+/// withdrawal in the queue.  Pass the accounts that match the head entry.
+/// The instruction returns `InsufficientFunds` (without dequeueing) if the
+/// vault still does not have enough liquidity.
 #[derive(Accounts)]
-pub struct Withdraw<'info> {
+pub struct ProcessQueueEntry<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
@@ -16,22 +19,33 @@ pub struct Withdraw<'info> {
     )]
     pub pool_signer: UncheckedAccount<'info>,
 
-    /// The mint of the token being withdrawn
+    /// The mint of the token being withdrawn.
     pub mint: Account<'info, Mint>,
 
-    /// The withdrawer
-    #[account(mut)]
-    pub authority: Signer<'info>,
-
-    /// The user's token account (destination)
+    /// Destination token account for the queued withdrawal.
+    /// Must be owned by the requester recorded in the head queue entry.
     #[account(
         mut,
-        constraint = user_token_account.owner == authority.key(),
         constraint = user_token_account.mint == mint.key(),
     )]
     pub user_token_account: Account<'info, TokenAccount>,
 
-    /// The lending account's token account (source)
+    /// The user's position PDA derived from the pool and the requester.
+    /// Seeds: ["user_position", pool, requester].
+    #[account(
+        mut,
+        seeds = [
+            b"user_position",
+            pool.key().as_ref(),
+            user_token_account.owner.as_ref(),
+        ],
+        bump = user_position.bump,
+        constraint = user_position.pool == pool.key()
+            @ crate::error::ErrorCode::QueueEntryMismatch,
+    )]
+    pub user_position: Account<'info, UserPosition>,
+
+    /// The pool's token vault (source of funds).
     #[account(
         mut,
         seeds = [b"pool", pool.key().as_ref()],
@@ -39,33 +53,41 @@ pub struct Withdraw<'info> {
     )]
     pub vault: Account<'info, TokenAccount>,
 
-    /// PDA that records the user's deposit and borrow position.
-    #[account(
-        mut,
-        seeds = [b"user_position", pool.key().as_ref(), authority.key().as_ref()],
-        bump = user_position.bump,
-        has_one = authority,
-        constraint = user_position.pool == pool.key()
-            @ crate::error::ErrorCode::InvalidAmount,
-    )]
-    pub user_position: Account<'info, UserPosition>,
-
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
 
-pub fn withdraw_handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
-    require!(amount > 0, crate::error::ErrorCode::InvalidAmount);
+pub fn process_queue_entry_handler(ctx: Context<ProcessQueueEntry>) -> Result<()> {
+    // ── 1. Peek at head entry (read-only, no dequeue yet) ─────────────────────
+    let entry = {
+        let pool = ctx.accounts.pool.load()?;
+        let q = &pool.withdrawal_queue;
+        require!(
+            q.head != q.tail,
+            crate::error::ErrorCode::WithdrawalQueueEmpty
+        );
+        q.entries[q.head as usize]
+    };
+
+    // ── 2. Validate accounts match the queued requester ───────────────────────
     require!(
-        amount <= ctx.accounts.user_position.deposited_amount,
-        crate::error::ErrorCode::InsufficientFunds
+        ctx.accounts.user_token_account.owner == entry.requester,
+        crate::error::ErrorCode::QueueEntryMismatch
     );
 
-    // ── 1. Accrue interest on the pool ────────────────────────────────────────
+    let amount = entry.amount;
+
+    // ── 3. Accrue interest ────────────────────────────────────────────────────
     let current_ts = Clock::get()?.unix_timestamp;
     ctx.accounts.pool.load_mut()?.accrue_interest(current_ts)?;
 
-    // ── 2. LTV check + gather values needed later ─────────────────────────────
+    // ── 4. Check vault liquidity (do NOT dequeue on failure) ──────────────────
+    require!(
+        ctx.accounts.vault.amount >= amount,
+        crate::error::ErrorCode::InsufficientFunds
+    );
+
+    // ── 5. LTV check ──────────────────────────────────────────────────────────
     let (remaining_deposit, pool_bump, lp_issued_before, total_deposited_before) = {
         let pool = ctx.accounts.pool.load()?;
         let position = &ctx.accounts.user_position;
@@ -102,26 +124,7 @@ pub fn withdraw_handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         )
     };
 
-    // ── 3. Check vault liquidity; enqueue if insufficient ────────────────────
-    let available = ctx.accounts.vault.amount;
-    if available < amount {
-        ctx.accounts
-            .pool
-            .load_mut()?
-            .withdrawal_queue
-            .push(WithdrawalQueueEntry {
-                requester: ctx.accounts.authority.key(),
-                amount,
-            })?;
-        msg!(
-            "Insufficient liquidity ({} available, {} requested). Withdrawal queued.",
-            available,
-            amount,
-        );
-        return Ok(());
-    }
-
-    // ── 4. Transfer underlying tokens back to user ────────────────────────────
+    // ── 6. Transfer tokens to the user ────────────────────────────────────────
     let pool_key = ctx.accounts.pool.key();
     let seeds = &[b"pool_signer" as &[u8], pool_key.as_ref(), &[pool_bump]];
     let signer = &[&seeds[..]];
@@ -139,7 +142,7 @@ pub fn withdraw_handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         amount,
     )?;
 
-    // ── 5. Update state ───────────────────────────────────────────────────────
+    // ── 7. Update state and dequeue ───────────────────────────────────────────
     let position = &ctx.accounts.user_position;
     let lp_owed_reduction = if position.lp_tokens_owed > 0 {
         (amount as u128)
@@ -170,6 +173,7 @@ pub fn withdraw_handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
             .total_lp_issued
             .checked_sub(lp_issued_reduction)
             .ok_or(crate::error::ErrorCode::MathOverflow)?;
+        pool.withdrawal_queue.pop()?; // dequeue only after successful transfer
     }
 
     let position = &mut ctx.accounts.user_position;
@@ -180,10 +184,9 @@ pub fn withdraw_handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
         .ok_or(crate::error::ErrorCode::MathOverflow)?;
 
     msg!(
-        "Withdrew {} tokens. Reduced LP owed by {}. Remaining deposit: {}",
+        "Processed queued withdrawal: {} tokens for requester {}.",
         amount,
-        lp_owed_reduction,
-        position.deposited_amount
+        entry.requester,
     );
 
     Ok(())

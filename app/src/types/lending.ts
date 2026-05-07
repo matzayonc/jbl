@@ -16,7 +16,7 @@ export interface LendingAccountData {
     totalBorrowed: bigint
     totalLpIssued: bigint
     lastAccrualTs: bigint
-    bump: number
+    poolSignerBump: number
     lpMintBump: number
     feeConfig: UtilizationFeeConfig
 }

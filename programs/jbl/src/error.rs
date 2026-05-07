@@ -14,4 +14,10 @@ pub enum ErrorCode {
     AlreadyBorrowed,
     #[msg("No open borrow to repay")]
     NoBorrowFound,
+    #[msg("Withdrawal queue is full; try again later")]
+    WithdrawalQueueFull,
+    #[msg("Withdrawal queue is empty")]
+    WithdrawalQueueEmpty,
+    #[msg("Provided account does not match the queued withdrawal entry")]
+    QueueEntryMismatch,
 }

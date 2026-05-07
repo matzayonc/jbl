@@ -36,7 +36,7 @@ export function useLendingAccounts(): UseLendingAccountsResult {
                             totalBorrowed: BigInt(account.totalBorrowed.toString()),
                             totalLpIssued: BigInt(account.totalLpIssued.toString()),
                             lastAccrualTs: BigInt(account.lastAccrualTs.toString()),
-                            bump: account.bump,
+                            poolSignerBump: account.poolSignerBump,
                             lpMintBump: account.lpMintBump,
                             feeConfig: {
                                 m1: BigInt(account.feeConfig.m1.toString()),

@@ -7,14 +7,15 @@ use anchor_spl::{
 
 #[derive(Accounts)]
 pub struct TakeLp<'info> {
+    #[account(mut)]
+    pub pool: AccountLoader<'info, Pool>,
+
+    /// CHECK: PDA used as LP mint authority for minting.
     #[account(
-        mut,
-        seeds = [b"lending", mint.key().as_ref()],
-        bump = pool.bump,
-        has_one = mint,
-        has_one = lp_mint,
+        seeds = [b"pool_signer", pool.key().as_ref()],
+        bump,
     )]
-    pub pool: Account<'info, Pool>,
+    pub pool_signer: UncheckedAccount<'info>,
 
     /// The mint of the underlying token (needed for pool seeds)
     pub mint: Account<'info, Mint>,
@@ -23,7 +24,7 @@ pub struct TakeLp<'info> {
     #[account(
         mut,
         seeds = [b"lp_mint", pool.key().as_ref()],
-        bump = pool.lp_mint_bump,
+        bump,
     )]
     pub lp_mint: Account<'info, Mint>,
 
@@ -64,38 +65,34 @@ pub fn take_lp_handler(ctx: Context<TakeLp>, amount: u64) -> Result<()> {
         crate::error::ErrorCode::InvalidAmount
     );
 
-    let lp_tokens_to_mint = amount;
-
-    // The pool PDA is the mint authority for lp_mint
-    let mint_key = ctx.accounts.mint.key();
-    let pool_bump = ctx.accounts.pool.bump;
-    let seeds = &[b"lending" as &[u8], mint_key.as_ref(), &[pool_bump]];
+    let pool_signer_bump = ctx.accounts.pool.load()?.pool_signer_bump;
+    let pool_key = ctx.accounts.pool.key();
+    let seeds = &[b"pool_signer" as &[u8], pool_key.as_ref(), &[pool_signer_bump]];
     let signer = &[&seeds[..]];
 
-    let mint_accounts = MintTo {
-        mint: ctx.accounts.lp_mint.to_account_info(),
-        to: ctx.accounts.user_lp_token_account.to_account_info(),
-        authority: ctx.accounts.pool.to_account_info(),
-    };
     anchor_spl::token::mint_to(
         CpiContext::new_with_signer(
             *ctx.accounts.token_program.to_account_info().key,
-            mint_accounts,
+            MintTo {
+                mint: ctx.accounts.lp_mint.to_account_info(),
+                to: ctx.accounts.user_lp_token_account.to_account_info(),
+                authority: ctx.accounts.pool_signer.to_account_info(),
+            },
             signer,
         ),
-        lp_tokens_to_mint,
+        amount,
     )?;
 
     ctx.accounts.user_position.lp_tokens_owed = ctx
         .accounts
         .user_position
         .lp_tokens_owed
-        .checked_sub(lp_tokens_to_mint)
+        .checked_sub(amount)
         .ok_or(crate::error::ErrorCode::MathOverflow)?;
 
     msg!(
         "Claimed {} LP tokens. Remaining owed: {}.",
-        lp_tokens_to_mint,
+        amount,
         ctx.accounts.user_position.lp_tokens_owed,
     );
 

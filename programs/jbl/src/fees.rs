@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, InitSpace, Debug)]
+#[zero_copy]
+#[derive(Debug)]
 pub struct UtilizationFeeConfig {
     pub m1: u64,
     pub c1: u64,
