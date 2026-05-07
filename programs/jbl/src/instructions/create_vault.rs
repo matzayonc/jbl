@@ -30,21 +30,19 @@ pub struct CreateVault<'info> {
     )]
     pub vault_token_account_a: Account<'info, TokenAccount>,
 
-    /// Token account holding deposited `lp_mint` tokens.
-    #[account(
-        init,
-        payer = payer,
-        token::mint = lp_mint,
-        token::authority = state,
-        seeds = [b"vault_tokens_b", vault.key().as_ref()],
-        bump
-    )]
-    pub vault_token_account_b: Account<'info, TokenAccount>,
-
     /// The lent token mint.
     pub lent_mint: Account<'info, Mint>,
 
-    /// The LP token mint.
+    /// The LP token mint — initialised here as a PDA owned by the program.
+    /// `state` PDA is set as the mint authority so `participate` can mint LP tokens via CPI.
+    #[account(
+        init,
+        payer = payer,
+        mint::decimals = lent_mint.decimals,
+        mint::authority = state,
+        seeds = [b"lp_mint", vault.key().as_ref()],
+        bump,
+    )]
     pub lp_mint: Account<'info, Mint>,
 
     /// The authority that controls this vault (can deposit / withdraw).

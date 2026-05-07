@@ -15,10 +15,9 @@ describe("vault", () => {
         let payer: Keypair;
         let authority: Keypair;
         let lentMint: PublicKey;
-        let lpMint: PublicKey;
+        let lpMintPda: PublicKey;
         let vaultKeypair: Keypair;
         let vaultTokenAccountAPda: PublicKey;
-        let vaultTokenAccountBPda: PublicKey;
         let statePda: PublicKey;
 
         before(async () => {
@@ -36,9 +35,8 @@ describe("vault", () => {
                 await provider.connection.confirmTransaction(sig);
             }
 
-            // Create two token mints (6 decimals each)
+            // Create the lent mint (external — not owned by the program)
             lentMint = await createMint(provider.connection, payer, authority.publicKey, null, 6);
-            lpMint = await createMint(provider.connection, payer, authority.publicKey, null, 6);
 
             // Derive PDAs
             [statePda] = PublicKey.findProgramAddressSync(
@@ -51,8 +49,9 @@ describe("vault", () => {
                 program.programId
             );
 
-            [vaultTokenAccountBPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from("vault_tokens_b"), vaultKeypair.publicKey.toBuffer()],
+            // lp_mint is created by create_vault as a PDA; derive it here for assertions.
+            [lpMintPda] = PublicKey.findProgramAddressSync(
+                [Buffer.from("lp_mint"), vaultKeypair.publicKey.toBuffer()],
                 program.programId
             );
         });
@@ -73,7 +72,6 @@ describe("vault", () => {
                 .accounts({
                     vault: vaultKeypair.publicKey,
                     lentMint,
-                    lpMint,
                     authority: authority.publicKey,
                     payer: payer.publicKey,
                 })
@@ -85,7 +83,7 @@ describe("vault", () => {
 
             expect(vault.authority.toString()).to.equal(authority.publicKey.toString());
             expect(vault.lentMint.toString()).to.equal(lentMint.toString());
-            expect(vault.lpMint.toString()).to.equal(lpMint.toString());
+            expect(vault.lpMint.toString()).to.equal(lpMintPda.toString());
             expect(vault.totalShares.toString()).to.equal("0");
         });
 
@@ -97,14 +95,6 @@ describe("vault", () => {
             expect(tokenAccount.amount.toString()).to.equal("0");
         });
 
-        it("initialises vault_token_account_b under state authority", async () => {
-            const tokenAccount = await getAccount(provider.connection, vaultTokenAccountBPda);
-
-            expect(tokenAccount.mint.toString()).to.equal(lpMint.toString());
-            expect(tokenAccount.owner.toString()).to.equal(statePda.toString());
-            expect(tokenAccount.amount.toString()).to.equal("0");
-        });
-
         it("fails when vault account is already initialised", async () => {
             try {
                 await program.methods
@@ -112,7 +102,6 @@ describe("vault", () => {
                     .accounts({
                         vault: vaultKeypair.publicKey,
                         lentMint,
-                        lpMint,
                         authority: authority.publicKey,
                         payer: payer.publicKey,
                     })
