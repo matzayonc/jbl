@@ -195,18 +195,25 @@ export function LendingInfoCard() {
     }
 
     async function handleTakeLp() {
+        console.log('[takeLp] called', { program: !!program, userAccount, userPublicKey: userPublicKey?.toBase58(), amount })
         if (!program || !userAccount || !userPublicKey || !amount) return
         setTxError(null)
         try {
             const lamports = new anchor.BN(parseFloat(amount) * TOKEN_DECIMALS)
-            const poolSigner = derivePoolSigner(userAccount.publicKey)
+            console.log('[takeLp] methods available:', Object.keys(program.methods))
+            console.log('[takeLp] takeLp method:', program.methods.takeLp)
+            console.log('[takeLp] userAccount.lpMint:', userAccount.lpMint?.toBase58())
             const userLpTokenAccount = getAssociatedTokenAddressSync(userAccount.lpMint, userPublicKey)
+            console.log('[takeLp] userLpTokenAccount:', userLpTokenAccount.toBase58())
+            const built = program.methods.takeLp(lamports).accounts({ pool: userAccount.publicKey, mint: userAccount.mint, authority: userPublicKey, userLpTokenAccount } as any)
+            console.log('[takeLp] instruction built, calling rpc...')
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const tx = await program.methods.takeLp(lamports).accounts({ pool: userAccount.publicKey, poolSigner, mint: userAccount.mint, authority: userPublicKey, userLpTokenAccount } as any).rpc(RPC_OPTS)
+            const tx = await built.rpc(RPC_OPTS)
             console.log('TakeLp tx:', tx)
             setAmount('')
             refetch()
         } catch (err) {
+            console.error('[takeLp] error:', err)
             if (alreadyProcessed(err)) { setAmount(''); refetch() }
             else setTxError(err instanceof Error ? err.message : String(err))
         }

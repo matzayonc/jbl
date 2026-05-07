@@ -1,6 +1,6 @@
 import * as anchor from "@anchor-lang/core";
 import { PublicKey } from "@solana/web3.js";
-import { getAccount } from "@solana/spl-token";
+import { getAccount, TokenAccountNotFoundError } from "@solana/spl-token";
 import { expect } from "chai";
 import { setupTest, TestSetup } from "./utils";
 
@@ -128,6 +128,52 @@ describe("lp tokens", () => {
 
             const userToken = await getAccount(connection, userTokenAccount);
             expect(userToken.amount.toString()).to.equal(INITIAL_BALANCE.toString());
+        });
+    });
+
+    // ── 3. init_if_needed: ATA is created when it doesn't exist ──────────────
+    describe("take_lp creates user_lp_token_account when it does not exist", () => {
+        const DEPOSIT_AMOUNT = 50_000_000;
+
+        let setup: TestSetup;
+        let userLpTokenAccount: PublicKey;
+
+        before(async () => {
+            setup = await setupTest();
+            userLpTokenAccount = anchor.utils.token.associatedAddress({
+                mint: setup.lpMintPda,
+                owner: setup.authority.publicKey,
+            });
+        });
+
+        it("user_lp_token_account does not exist before take_lp", async () => {
+            const { connection } = setup;
+            try {
+                await getAccount(connection, userLpTokenAccount);
+                throw new Error("Expected TokenAccountNotFoundError but account exists");
+            } catch (err) {
+                expect(err).to.be.instanceOf(TokenAccountNotFoundError);
+            }
+        });
+
+        it("take_lp creates the ATA and mints LP tokens into it", async () => {
+            const { program, mint, pool, userTokenAccount, authority, connection } = setup;
+
+            await program.methods
+                .deposit(new anchor.BN(DEPOSIT_AMOUNT))
+                .accounts({ pool, mint, authority: authority.publicKey, userTokenAccount })
+                .signers([authority])
+                .rpc();
+
+            // user_lp_token_account is intentionally NOT pre-created
+            await program.methods
+                .takeLp(new anchor.BN(DEPOSIT_AMOUNT))
+                .accounts({ pool, mint, authority: authority.publicKey, userLpTokenAccount })
+                .signers([authority])
+                .rpc();
+
+            const lpAccount = await getAccount(connection, userLpTokenAccount);
+            expect(lpAccount.amount.toString()).to.equal(DEPOSIT_AMOUNT.toString());
         });
     });
 });
