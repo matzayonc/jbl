@@ -40,12 +40,6 @@ export function useCreateLendingPool(onCreated: () => void): UseCreateLendingPoo
             const poolKeypair = Keypair.generate()
             const pool = poolKeypair.publicKey
 
-            // Derive the pool_signer PDA (vault + LP mint authority)
-            const [poolSignerPda] = PublicKey.findProgramAddressSync(
-                [Buffer.from('pool_signer'), pool.toBytes()],
-                readonlyProgram.programId,
-            )
-
             // Step 1: create and initialize the SPL mint
             const mintLamports = await getMinimumBalanceForRentExemptMint(connection)
             const { blockhash: bh1, lastValidBlockHeight: lv1 } = await connection.getLatestBlockhash()
@@ -86,7 +80,6 @@ export function useCreateLendingPool(onCreated: () => void): UseCreateLendingPoo
                 )
                 .accounts({
                     pool,
-                    poolSigner: poolSignerPda,
                     mint: mintKeypair.publicKey,
                     authority: payer,
                     payer,

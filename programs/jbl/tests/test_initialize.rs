@@ -63,10 +63,7 @@ fn test_create() {
     let pool_keypair = Keypair::new();
     let pool_pubkey = pool_keypair.pubkey();
 
-    let (pool_signer_pda, _) = Pubkey::find_program_address(
-        &[b"pool_signer", pool_pubkey.as_ref()],
-        &program_id,
-    );
+    let (state_pda, _) = Pubkey::find_program_address(&[b"state"], &program_id);
     let (vault_pda, _) = find_vault_pda(&pool_pubkey, &program_id);
     let (lp_mint_pda, _) = find_lp_mint_pda(&pool_pubkey, &program_id);
 
@@ -87,7 +84,7 @@ fn test_create() {
         &jbl::instruction::Create { m1: 0, c1: 50, m2: 0, c2: 0 }.data(),
         jbl::accounts::Create {
             pool: pool_pubkey,
-            pool_signer: pool_signer_pda,
+            state: state_pda,
             vault: vault_pda,
             lp_mint: lp_mint_pda,
             mint: mint_keypair.pubkey(),
@@ -121,8 +118,8 @@ fn test_pool_size() {
     //   3 × Pubkey (32)       = 96
     //   5 × u64/i64 (8)       = 40
     //   fee_config 4×u64 (8)  = 32
-    //   ltv_percent, bump, lp_mint_bump (1 each) = 3
-    //   _pad [u8;5]            = 5
+    //   ltv_percent, lp_mint_bump (1 each) = 2
+    //   _pad [u8;6]            = 6
     //   WithdrawalQueue:
     //     head (u16) + tail (u16) + _pad [u8;4] = 8
     //     entries [WithdrawalQueueEntry; 1024], each 40 bytes = 40960

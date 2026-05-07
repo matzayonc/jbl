@@ -1,5 +1,6 @@
 pub mod borrow;
 pub mod create;
+pub mod create_vault;
 pub mod deposit;
 pub mod process_queue;
 pub mod put_lp;
@@ -9,6 +10,7 @@ pub mod withdraw;
 
 pub use borrow::*;
 pub use create::*;
+pub use create_vault::*;
 pub use deposit::*;
 pub use process_queue::*;
 pub use put_lp::*;

@@ -9,12 +9,12 @@ pub struct Borrow<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
-    /// CHECK: PDA used as vault authority for outbound token transfers.
+    /// CHECK: Signer-only PDA — no data stored; signs vault-transfer CPIs.
     #[account(
-        seeds = [b"pool_signer", pool.key().as_ref()],
+        seeds = [b"state"],
         bump,
     )]
-    pub pool_signer: UncheckedAccount<'info>,
+    pub state: UncheckedAccount<'info>,
 
     /// The mint of the token being borrowed
     pub mint: Account<'info, Mint>,
@@ -71,7 +71,7 @@ pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
     ctx.accounts.pool.load_mut()?.accrue_interest(current_ts)?;
 
     // ── 2. LTV check and share calculation ───────────────────────────────────
-    let (new_shares, pool_bump) = {
+    let new_shares = {
         let pool = ctx.accounts.pool.load()?;
         let deposited = ctx.accounts.user_position.deposited_amount;
         let max_borrowable = deposited
@@ -100,7 +100,7 @@ pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
             .ok_or(crate::error::ErrorCode::MathOverflow)?;
         require!(new_shares > 0, crate::error::ErrorCode::InvalidAmount);
 
-        (new_shares, pool.pool_signer_bump)
+        new_shares
     };
 
     // ── 3. Update user position ───────────────────────────────────────────────
@@ -112,8 +112,7 @@ pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
         .ok_or(crate::error::ErrorCode::MathOverflow)?;
 
     // ── 4. Transfer tokens to the user ────────────────────────────────────────
-    let pool_key = ctx.accounts.pool.key();
-    let seeds = &[b"pool_signer" as &[u8], pool_key.as_ref(), &[pool_bump]];
+    let seeds = &[b"state" as &[u8], &[ctx.bumps.state]];
     let signer = &[&seeds[..]];
 
     anchor_spl::token::transfer(
@@ -122,7 +121,7 @@ pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
             anchor_spl::token::Transfer {
                 from: ctx.accounts.vault.to_account_info(),
                 to: ctx.accounts.user_token_account.to_account_info(),
-                authority: ctx.accounts.pool_signer.to_account_info(),
+                authority: ctx.accounts.state.to_account_info(),
             },
             signer,
         ),

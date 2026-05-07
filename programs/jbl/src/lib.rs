@@ -14,7 +14,7 @@ pub use fees::*;
 pub use instructions::*;
 pub use state::*;
 
-declare_id!("HNCk8UMWP6s8hZaeKyvPUCsrSZ22pHpt3FgwMQnom1EA");
+declare_id!("GMEYxFReMTEDh8Rqmt88aqz6XTBxRrU8BvBVxScPmgn");
 
 #[program]
 pub mod jbl {
@@ -50,5 +50,9 @@ pub mod jbl {
 
     pub fn process_queue_entry(ctx: Context<ProcessQueueEntry>) -> Result<()> {
         process_queue_entry_handler(ctx)
+    }
+
+    pub fn create_vault(ctx: Context<CreateVault>) -> Result<()> {
+        create_vault_handler(ctx)
     }
 }

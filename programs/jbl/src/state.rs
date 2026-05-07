@@ -7,9 +7,8 @@ use anchor_lang::prelude::*;
 /// Field ordering is chosen to eliminate implicit repr(C) padding:
 ///   offsets 0-95    : three Pubkeys  (3 × 32 = 96 bytes, align 1)
 ///   offsets 96-167  : five u64/i64  (5 × 8 = 40) + fee_config (4×8 = 32)
-///   offsets 168-170 : ltv_percent, pool_signer_bump, lp_mint_bump  (3 × u8)
-///   offsets 171-175 : _pad [u8;5]  (align withdrawal_queue to 8)
-///   offsets 176-...  : WithdrawalQueue  (1024 entries × 40 bytes = 40960 + 8 header)
+///   offsets 168-169 : ltv_percent, lp_mint_bump  (2 × u8)
+///   offsets 170-175 : _pad [u8;6]  (align withdrawal_queue to 8)
 #[account(zero_copy)]
 pub struct Pool {
     pub authority: Pubkey,
@@ -22,12 +21,9 @@ pub struct Pool {
     pub total_lp_issued: u64,
     pub fee_config: UtilizationFeeConfig,
     pub ltv_percent: u8,
-    /// Bump seed for the `pool_signer` PDA (`seeds = [b"pool_signer", pool.key()]`).
-    /// Used to sign vault-transfer and LP-mint CPIs on behalf of the pool.
-    pub pool_signer_bump: u8,
     pub lp_mint_bump: u8,
-    _pad: [u8; 5], // explicit padding — no implicit/uninitialised bytes
-    pub withdrawal_queue: WithdrawalQueue,
+    _pad: [u8; 6], // explicit padding — no implicit/uninitialised bytes
+                   // pub withdrawal_queue: WithdrawalQueue,
 }
 
 impl Pool {
@@ -63,6 +59,32 @@ impl Pool {
         self.last_accrual_ts = current_ts;
         Ok(())
     }
+}
+
+/// A two-asset vault stored as zero-copy to avoid copying the ~40 KB withdrawal
+/// queue onto the stack during Borsh deserialization.
+///
+/// The vault is a **keypair account** (not a PDA); it must be pre-allocated by
+/// the caller before invoking `create_vault`, exactly like `Pool`.
+///
+/// Field ordering eliminates implicit repr(C) padding:
+///   offsets 0-95    : three Pubkeys (authority, lent_mint, lp_mint) (3 × 32 = 96 bytes)
+///   offsets 96-103  : total_shares (u64)
+///   offsets 104-111 : _pad [u8; 8]  (align WithdrawalQueue to 8)
+///   offsets 112-... : WithdrawalQueue  (1024 entries × 40 bytes = 40 960 + 8 header)
+#[account(zero_copy)]
+pub struct Vault {
+    /// The pubkey that controls this vault.
+    pub authority: Pubkey,
+    /// First SPL token mint accepted by this vault.
+    pub lent_mint: Pubkey,
+    /// Second SPL token mint accepted by this vault.
+    pub lp_mint: Pubkey,
+    /// Total deposit shares outstanding (shares, not raw token amounts).
+    /// Individual user share → token conversion is computed at withdrawal time.
+    pub total_shares: u64,
+    _pad: [u8; 8], // explicit padding — no implicit/uninitialised bytes
+    pub withdrawal_queue: WithdrawalQueue,
 }
 
 /// Tracks a user's deposit and any open borrow position for a lending account.

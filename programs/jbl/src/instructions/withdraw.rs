@@ -1,6 +1,5 @@
 use crate::math::shares_to_amount;
 use crate::state::{Pool, UserPosition};
-use crate::withdrawal_queue::WithdrawalQueueEntry;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
@@ -9,12 +8,12 @@ pub struct Withdraw<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
-    /// CHECK: PDA used as vault authority for outbound token transfers.
+    /// CHECK: Signer-only PDA — no data stored; signs vault-transfer CPIs.
     #[account(
-        seeds = [b"pool_signer", pool.key().as_ref()],
+        seeds = [b"state"],
         bump,
     )]
-    pub pool_signer: UncheckedAccount<'info>,
+    pub state: UncheckedAccount<'info>,
 
     /// The mint of the token being withdrawn
     pub mint: Account<'info, Mint>,
@@ -66,7 +65,7 @@ pub fn withdraw_handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
     ctx.accounts.pool.load_mut()?.accrue_interest(current_ts)?;
 
     // ── 2. LTV check + gather values needed later ─────────────────────────────
-    let (remaining_deposit, pool_bump, lp_issued_before, total_deposited_before) = {
+    let (remaining_deposit, lp_issued_before, total_deposited_before) = {
         let pool = ctx.accounts.pool.load()?;
         let position = &ctx.accounts.user_position;
 
@@ -96,7 +95,6 @@ pub fn withdraw_handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
 
         (
             remaining_deposit,
-            pool.pool_signer_bump,
             pool.total_lp_issued,
             pool.total_deposited,
         )
@@ -105,25 +103,26 @@ pub fn withdraw_handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
     // ── 3. Check vault liquidity; enqueue if insufficient ────────────────────
     let available = ctx.accounts.vault.amount;
     if available < amount {
-        ctx.accounts
-            .pool
-            .load_mut()?
-            .withdrawal_queue
-            .push(WithdrawalQueueEntry {
-                requester: ctx.accounts.authority.key(),
-                amount,
-            })?;
-        msg!(
-            "Insufficient liquidity ({} available, {} requested). Withdrawal queued.",
-            available,
-            amount,
-        );
-        return Ok(());
+        // ctx.accounts
+        //     .pool
+        //     .load_mut()?
+        //     .withdrawal_queue
+        //     .push(WithdrawalQueueEntry {
+        //         requester: ctx.accounts.authority.key(),
+        //         amount,
+        //     })?;
+        return Err(crate::error::ErrorCode::WithdrawalQueueFull.into());
+
+        // msg!(
+        //     "Insufficient liquidity ({} available, {} requested). Withdrawal queued.",
+        //     available,
+        //     amount,
+        // );
+        // return Ok(());
     }
 
     // ── 4. Transfer underlying tokens back to user ────────────────────────────
-    let pool_key = ctx.accounts.pool.key();
-    let seeds = &[b"pool_signer" as &[u8], pool_key.as_ref(), &[pool_bump]];
+    let seeds = &[b"state" as &[u8], &[ctx.bumps.state]];
     let signer = &[&seeds[..]];
 
     token::transfer(
@@ -132,7 +131,7 @@ pub fn withdraw_handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
             Transfer {
                 from: ctx.accounts.vault.to_account_info(),
                 to: ctx.accounts.user_token_account.to_account_info(),
-                authority: ctx.accounts.pool_signer.to_account_info(),
+                authority: ctx.accounts.state.to_account_info(),
             },
             signer,
         ),

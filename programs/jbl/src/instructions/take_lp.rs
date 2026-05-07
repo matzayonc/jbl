@@ -10,12 +10,12 @@ pub struct TakeLp<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
-    /// CHECK: PDA used as LP mint authority for minting.
+    /// CHECK: Signer-only PDA — no data stored; signs LP-mint CPIs.
     #[account(
-        seeds = [b"pool_signer", pool.key().as_ref()],
+        seeds = [b"state"],
         bump,
     )]
-    pub pool_signer: UncheckedAccount<'info>,
+    pub state: UncheckedAccount<'info>,
 
     /// The mint of the underlying token (needed for pool seeds)
     pub mint: Account<'info, Mint>,
@@ -65,9 +65,8 @@ pub fn take_lp_handler(ctx: Context<TakeLp>, amount: u64) -> Result<()> {
         crate::error::ErrorCode::InvalidAmount
     );
 
-    let pool_signer_bump = ctx.accounts.pool.load()?.pool_signer_bump;
-    let pool_key = ctx.accounts.pool.key();
-    let seeds = &[b"pool_signer" as &[u8], pool_key.as_ref(), &[pool_signer_bump]];
+    let pool_signer_bump = ctx.bumps.state;
+    let seeds = &[b"state" as &[u8], &[pool_signer_bump]];
     let signer = &[&seeds[..]];
 
     anchor_spl::token::mint_to(
@@ -76,7 +75,7 @@ pub fn take_lp_handler(ctx: Context<TakeLp>, amount: u64) -> Result<()> {
             MintTo {
                 mint: ctx.accounts.lp_mint.to_account_info(),
                 to: ctx.accounts.user_lp_token_account.to_account_info(),
-                authority: ctx.accounts.pool_signer.to_account_info(),
+                authority: ctx.accounts.state.to_account_info(),
             },
             signer,
         ),

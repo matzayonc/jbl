@@ -12,22 +12,19 @@ pub struct Create<'info> {
     #[account(zero)]
     pub pool: AccountLoader<'info, Pool>,
 
-    /// PDA used as the authority for the vault and LP mint.
-    /// Derived deterministically from the pool's public key so it is still
-    /// unique even though the pool itself is a keypair account.
-    /// CHECK: only used as authority — no data stored here.
+    /// CHECK: Signer-only PDA — no data stored; used as authority for the vault and LP mint.
     #[account(
-        seeds = [b"pool_signer", pool.key().as_ref()],
-        bump
+        seeds = [b"state"],
+        bump,
     )]
-    pub pool_signer: UncheckedAccount<'info>,
+    pub state: UncheckedAccount<'info>,
 
     /// The token vault for holding deposited tokens
     #[account(
         init,
         payer = payer,
         token::mint = mint,
-        token::authority = pool_signer,
+        token::authority = state,
         seeds = [b"pool", pool.key().as_ref()],
         bump
     )]
@@ -38,7 +35,7 @@ pub struct Create<'info> {
         init,
         payer = payer,
         mint::decimals = mint.decimals,
-        mint::authority = pool_signer,
+        mint::authority = state,
         seeds = [b"lp_mint", pool.key().as_ref()],
         bump
     )]
@@ -71,7 +68,6 @@ pub fn create_handler(ctx: Context<Create>, m1: u64, c1: u64, m2: u64, c2: u64) 
     pool.total_lp_issued = 0;
     pool.ltv_percent = 75;
     pool.fee_config = crate::fees::UtilizationFeeConfig { m1, c1, m2, c2 };
-    pool.pool_signer_bump = ctx.bumps.pool_signer;
     pool.lp_mint_bump = ctx.bumps.lp_mint;
     // withdrawal_queue is zero-initialised by load_init (head=0, tail=0)
 

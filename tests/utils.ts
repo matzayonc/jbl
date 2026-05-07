@@ -33,7 +33,7 @@ export interface TestSetup {
   payer: Keypair;
   mint: PublicKey;
   pool: PublicKey;
-  poolSignerPda: PublicKey;
+  statePda: PublicKey;
   lendingVaultPda: PublicKey;
   lpMintPda: PublicKey;
   userPositionPda: PublicKey;
@@ -84,9 +84,9 @@ export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE): Promise
   const poolKeypair = Keypair.generate();
   const pool = poolKeypair.publicKey;
 
-  // Derive pool_signer PDA (used as vault/lp_mint authority)
-  const [poolSignerPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("pool_signer"), pool.toBuffer()],
+  // Derive the singleton global state PDA (authority for all CPIs)
+  const [statePda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("state")],
     program.programId
   );
 
@@ -133,12 +133,11 @@ export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE): Promise
     programId: program.programId,
   });
 
-  // Create the lending pool — pool_signer PDA and vault/lp_mint are also created here.
+  // Create the lending pool — state PDA is used as authority for vault and LP mint.
   await program.methods
     .create(feeCurve.m1, feeCurve.c1, feeCurve.m2, feeCurve.c2)
     .accounts({
       pool,
-      poolSigner: poolSignerPda,
       mint,
       authority: authority.publicKey,
       payer: payer.publicKey,
@@ -155,7 +154,7 @@ export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE): Promise
     payer,
     mint,
     pool,
-    poolSignerPda,
+    statePda,
     lendingVaultPda,
     lpMintPda,
     userPositionPda,
