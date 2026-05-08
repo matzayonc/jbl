@@ -1,11 +1,5 @@
-/**
- * Program IDL in camelCase format in order to be used in JS/TS.
- *
- * Note that this is only a type helper and is not the actual IDL. The original
- * IDL can be found at `target/idl/jbl.json`.
- */
-export type Jbl = {
-  "address": "GMEYxFReMTEDh8Rqmt88aqz6XTBxRrU8BvBVxScPmgn",
+{
+  "address": "BkWW6JpZ3k7D723LbEWtGq1F7rgvqiuVrFFGA4ap87yn",
   "metadata": {
     "name": "jbl",
     "version": "0.1.0",
@@ -48,7 +42,7 @@ export type Jbl = {
           }
         },
         {
-          "name": "lendMint",
+          "name": "lend_mint",
           "docs": [
             "The lend token mint (token being borrowed)."
           ]
@@ -61,11 +55,11 @@ export type Jbl = {
           "writable": true,
           "signer": true,
           "relations": [
-            "userPosition"
+            "user_position"
           ]
         },
         {
-          "name": "userTokenAccount",
+          "name": "user_token_account",
           "docs": [
             "The user's lend-token account (destination) — created if it doesn't exist yet"
           ],
@@ -115,7 +109,7 @@ export type Jbl = {
               },
               {
                 "kind": "account",
-                "path": "lendMint"
+                "path": "lend_mint"
               }
             ],
             "program": {
@@ -158,7 +152,7 @@ export type Jbl = {
           }
         },
         {
-          "name": "lendVault",
+          "name": "lend_vault",
           "docs": [
             "The pool's lend vault (source of borrowed tokens)"
           ],
@@ -188,7 +182,7 @@ export type Jbl = {
           }
         },
         {
-          "name": "userPosition",
+          "name": "user_position",
           "docs": [
             "The user's position — collateral balance and active borrow fields."
           ],
@@ -225,15 +219,15 @@ export type Jbl = {
           }
         },
         {
-          "name": "tokenProgram",
+          "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "associatedTokenProgram",
+          "name": "associated_token_program",
           "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         },
         {
-          "name": "systemProgram",
+          "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
       ],
@@ -284,7 +278,7 @@ export type Jbl = {
           }
         },
         {
-          "name": "collateralVault",
+          "name": "collateral_vault",
           "docs": [
             "Token vault for holding deposited collateral tokens."
           ],
@@ -320,7 +314,7 @@ export type Jbl = {
           }
         },
         {
-          "name": "lendVault",
+          "name": "lend_vault",
           "docs": [
             "Token vault for holding deposited lend tokens."
           ],
@@ -350,7 +344,7 @@ export type Jbl = {
           }
         },
         {
-          "name": "lpMint",
+          "name": "lp_mint",
           "docs": [
             "The LP token mint for the lend side of this pool."
           ],
@@ -377,13 +371,13 @@ export type Jbl = {
           }
         },
         {
-          "name": "collateralMint",
+          "name": "collateral_mint",
           "docs": [
             "The collateral token mint."
           ]
         },
         {
-          "name": "lendMint",
+          "name": "lend_mint",
           "docs": [
             "The lend token mint (deposited by lenders; borrowed by borrowers)."
           ]
@@ -404,11 +398,11 @@ export type Jbl = {
           "signer": true
         },
         {
-          "name": "tokenProgram",
+          "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "systemProgram",
+          "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
       ],
@@ -449,7 +443,7 @@ export type Jbl = {
           "writable": true
         },
         {
-          "name": "collateralMint",
+          "name": "collateral_mint",
           "docs": [
             "The collateral token mint."
           ]
@@ -463,14 +457,14 @@ export type Jbl = {
           "signer": true
         },
         {
-          "name": "userTokenAccount",
+          "name": "user_token_account",
           "docs": [
             "The user's collateral token account (source)"
           ],
           "writable": true
         },
         {
-          "name": "collateralVault",
+          "name": "collateral_vault",
           "docs": [
             "The pool's collateral vault (destination)"
           ],
@@ -506,7 +500,7 @@ export type Jbl = {
           }
         },
         {
-          "name": "userPosition",
+          "name": "user_position",
           "docs": [
             "PDA that records the user's collateral deposit and borrow position."
           ],
@@ -543,11 +537,11 @@ export type Jbl = {
           }
         },
         {
-          "name": "tokenProgram",
+          "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "systemProgram",
+          "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
       ],
@@ -593,13 +587,13 @@ export type Jbl = {
           }
         },
         {
-          "name": "lendMint",
+          "name": "lend_mint",
           "docs": [
             "The lend token mint accepted by this pool."
           ]
         },
         {
-          "name": "lpMint",
+          "name": "lp_mint",
           "docs": [
             "The pool's LP token mint."
           ],
@@ -634,7 +628,7 @@ export type Jbl = {
           "signer": true
         },
         {
-          "name": "userLpTokenAccount",
+          "name": "user_lp_token_account",
           "docs": [
             "The user's LP token account (source for burning)."
           ],
@@ -684,7 +678,7 @@ export type Jbl = {
               },
               {
                 "kind": "account",
-                "path": "lpMint"
+                "path": "lp_mint"
               }
             ],
             "program": {
@@ -727,7 +721,7 @@ export type Jbl = {
           }
         },
         {
-          "name": "userLendTokenAccount",
+          "name": "user_lend_token_account",
           "docs": [
             "The user's lend-token account (destination) — created if it doesn't exist."
           ],
@@ -777,7 +771,7 @@ export type Jbl = {
               },
               {
                 "kind": "account",
-                "path": "lendMint"
+                "path": "lend_mint"
               }
             ],
             "program": {
@@ -820,7 +814,7 @@ export type Jbl = {
           }
         },
         {
-          "name": "lendVault",
+          "name": "lend_vault",
           "docs": [
             "The pool's lend vault — holds lend tokens; source for withdrawal."
           ],
@@ -850,15 +844,15 @@ export type Jbl = {
           }
         },
         {
-          "name": "tokenProgram",
+          "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "associatedTokenProgram",
+          "name": "associated_token_program",
           "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         },
         {
-          "name": "systemProgram",
+          "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
       ],
@@ -904,13 +898,13 @@ export type Jbl = {
           }
         },
         {
-          "name": "lendMint",
+          "name": "lend_mint",
           "docs": [
             "The lend token mint accepted by this pool."
           ]
         },
         {
-          "name": "lpMint",
+          "name": "lp_mint",
           "docs": [
             "The pool's LP token mint. `state` PDA is the mint authority."
           ],
@@ -945,14 +939,14 @@ export type Jbl = {
           "signer": true
         },
         {
-          "name": "userLendTokenAccount",
+          "name": "user_lend_token_account",
           "docs": [
             "The user's lend-token source account."
           ],
           "writable": true
         },
         {
-          "name": "lendVault",
+          "name": "lend_vault",
           "docs": [
             "The pool's lend vault — holds deposited lend tokens."
           ],
@@ -982,7 +976,7 @@ export type Jbl = {
           }
         },
         {
-          "name": "userLpTokenAccount",
+          "name": "user_lp_token_account",
           "docs": [
             "The user's LP token account — created if it doesn't already exist."
           ],
@@ -1032,7 +1026,7 @@ export type Jbl = {
               },
               {
                 "kind": "account",
-                "path": "lpMint"
+                "path": "lp_mint"
               }
             ],
             "program": {
@@ -1075,15 +1069,15 @@ export type Jbl = {
           }
         },
         {
-          "name": "tokenProgram",
+          "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "associatedTokenProgram",
+          "name": "associated_token_program",
           "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         },
         {
-          "name": "systemProgram",
+          "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
       ],
@@ -1095,7 +1089,7 @@ export type Jbl = {
       ]
     },
     {
-      "name": "processQueueEntry",
+      "name": "process_queue_entry",
       "discriminator": [
         94,
         111,
@@ -1135,7 +1129,7 @@ export type Jbl = {
           ]
         },
         {
-          "name": "userTokenAccount",
+          "name": "user_token_account",
           "docs": [
             "Destination token account for the queued withdrawal.",
             "Must be owned by the requester recorded in the head queue entry."
@@ -1143,7 +1137,7 @@ export type Jbl = {
           "writable": true
         },
         {
-          "name": "userPosition",
+          "name": "user_position",
           "docs": [
             "The user's position PDA derived from the pool and the requester.",
             "Seeds: [\"user_position\", pool, requester]."
@@ -1176,7 +1170,7 @@ export type Jbl = {
               {
                 "kind": "account",
                 "path": "user_token_account.owner",
-                "account": "tokenAccount"
+                "account": "TokenAccount"
               }
             ]
           }
@@ -1206,18 +1200,18 @@ export type Jbl = {
           }
         },
         {
-          "name": "tokenProgram",
+          "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "systemProgram",
+          "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
       ],
       "args": []
     },
     {
-      "name": "processVaultQueueEntry",
+      "name": "process_vault_queue_entry",
       "discriminator": [
         212,
         76,
@@ -1251,13 +1245,13 @@ export type Jbl = {
           }
         },
         {
-          "name": "lendMint",
+          "name": "lend_mint",
           "docs": [
             "The lend token mint accepted by this pool."
           ]
         },
         {
-          "name": "requesterLendTokenAccount",
+          "name": "requester_lend_token_account",
           "docs": [
             "The requester's lend-token destination account.",
             "Must be owned by the pubkey stored in the head queue entry.",
@@ -1309,7 +1303,7 @@ export type Jbl = {
               },
               {
                 "kind": "account",
-                "path": "lendMint"
+                "path": "lend_mint"
               }
             ],
             "program": {
@@ -1358,7 +1352,7 @@ export type Jbl = {
           ]
         },
         {
-          "name": "lendVault",
+          "name": "lend_vault",
           "docs": [
             "The pool's lend vault — holds lend tokens; source for withdrawal."
           ],
@@ -1396,22 +1390,22 @@ export type Jbl = {
           "signer": true
         },
         {
-          "name": "tokenProgram",
+          "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "associatedTokenProgram",
+          "name": "associated_token_program",
           "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         },
         {
-          "name": "systemProgram",
+          "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
       ],
       "args": []
     },
     {
-      "name": "putLp",
+      "name": "put_lp",
       "discriminator": [
         252,
         79,
@@ -1428,7 +1422,7 @@ export type Jbl = {
           "writable": true
         },
         {
-          "name": "lpMint",
+          "name": "lp_mint",
           "docs": [
             "The LP token mint for this lending pool"
           ],
@@ -1463,7 +1457,7 @@ export type Jbl = {
           "signer": true
         },
         {
-          "name": "userLpTokenAccount",
+          "name": "user_lp_token_account",
           "docs": [
             "The user's LP token account (source for burning)"
           ],
@@ -1513,7 +1507,7 @@ export type Jbl = {
               },
               {
                 "kind": "account",
-                "path": "lpMint"
+                "path": "lp_mint"
               }
             ],
             "program": {
@@ -1556,7 +1550,7 @@ export type Jbl = {
           }
         },
         {
-          "name": "userPosition",
+          "name": "user_position",
           "docs": [
             "The user's position — credited with the lend-side value of the LP tokens"
           ],
@@ -1593,15 +1587,15 @@ export type Jbl = {
           }
         },
         {
-          "name": "tokenProgram",
+          "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "associatedTokenProgram",
+          "name": "associated_token_program",
           "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         },
         {
-          "name": "systemProgram",
+          "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
       ],
@@ -1630,7 +1624,7 @@ export type Jbl = {
           "writable": true
         },
         {
-          "name": "lendMint",
+          "name": "lend_mint",
           "docs": [
             "The lend token mint (token being repaid)."
           ]
@@ -1643,11 +1637,11 @@ export type Jbl = {
           "writable": true,
           "signer": true,
           "relations": [
-            "userPosition"
+            "user_position"
           ]
         },
         {
-          "name": "userTokenAccount",
+          "name": "user_token_account",
           "docs": [
             "The borrower's lend-token account (source of repayment)"
           ],
@@ -1697,7 +1691,7 @@ export type Jbl = {
               },
               {
                 "kind": "account",
-                "path": "lendMint"
+                "path": "lend_mint"
               }
             ],
             "program": {
@@ -1740,7 +1734,7 @@ export type Jbl = {
           }
         },
         {
-          "name": "lendVault",
+          "name": "lend_vault",
           "docs": [
             "The pool's lend vault (destination of repayment)"
           ],
@@ -1770,7 +1764,7 @@ export type Jbl = {
           }
         },
         {
-          "name": "userPosition",
+          "name": "user_position",
           "docs": [
             "The user's position — borrow fields are reset on successful repay"
           ],
@@ -1807,15 +1801,15 @@ export type Jbl = {
           }
         },
         {
-          "name": "tokenProgram",
+          "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "associatedTokenProgram",
+          "name": "associated_token_program",
           "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         },
         {
-          "name": "systemProgram",
+          "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
       ],
@@ -1827,7 +1821,7 @@ export type Jbl = {
       ]
     },
     {
-      "name": "takeLp",
+      "name": "take_lp",
       "discriminator": [
         167,
         138,
@@ -1861,7 +1855,7 @@ export type Jbl = {
           }
         },
         {
-          "name": "lpMint",
+          "name": "lp_mint",
           "docs": [
             "The LP token mint for this lending pool"
           ],
@@ -1895,11 +1889,11 @@ export type Jbl = {
           "writable": true,
           "signer": true,
           "relations": [
-            "userPosition"
+            "user_position"
           ]
         },
         {
-          "name": "userPosition",
+          "name": "user_position",
           "docs": [
             "The user position to consume when claiming LP tokens"
           ],
@@ -1936,7 +1930,7 @@ export type Jbl = {
           }
         },
         {
-          "name": "userLpTokenAccount",
+          "name": "user_lp_token_account",
           "docs": [
             "The user's LP token account (destination)"
           ],
@@ -1986,7 +1980,7 @@ export type Jbl = {
               },
               {
                 "kind": "account",
-                "path": "lpMint"
+                "path": "lp_mint"
               }
             ],
             "program": {
@@ -2029,15 +2023,15 @@ export type Jbl = {
           }
         },
         {
-          "name": "tokenProgram",
+          "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "associatedTokenProgram",
+          "name": "associated_token_program",
           "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         },
         {
-          "name": "systemProgram",
+          "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
       ],
@@ -2083,7 +2077,7 @@ export type Jbl = {
           }
         },
         {
-          "name": "collateralMint",
+          "name": "collateral_mint",
           "docs": [
             "The collateral token mint."
           ]
@@ -2096,18 +2090,18 @@ export type Jbl = {
           "writable": true,
           "signer": true,
           "relations": [
-            "userPosition"
+            "user_position"
           ]
         },
         {
-          "name": "userTokenAccount",
+          "name": "user_token_account",
           "docs": [
             "The user's collateral token account (destination)"
           ],
           "writable": true
         },
         {
-          "name": "collateralVault",
+          "name": "collateral_vault",
           "docs": [
             "The pool's collateral vault (source)"
           ],
@@ -2143,7 +2137,7 @@ export type Jbl = {
           }
         },
         {
-          "name": "userPosition",
+          "name": "user_position",
           "docs": [
             "PDA that records the user's collateral deposit and borrow position."
           ],
@@ -2180,11 +2174,11 @@ export type Jbl = {
           }
         },
         {
-          "name": "tokenProgram",
+          "name": "token_program",
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "systemProgram",
+          "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
       ],
@@ -2198,7 +2192,7 @@ export type Jbl = {
   ],
   "accounts": [
     {
-      "name": "pool",
+      "name": "Pool",
       "discriminator": [
         241,
         154,
@@ -2211,7 +2205,7 @@ export type Jbl = {
       ]
     },
     {
-      "name": "userPosition",
+      "name": "UserPosition",
       "discriminator": [
         251,
         248,
@@ -2227,53 +2221,53 @@ export type Jbl = {
   "errors": [
     {
       "code": 6000,
-      "name": "customError",
+      "name": "CustomError",
       "msg": "Custom error message"
     },
     {
       "code": 6001,
-      "name": "invalidAmount",
+      "name": "InvalidAmount",
       "msg": "Invalid amount provided"
     },
     {
       "code": 6002,
-      "name": "mathOverflow",
+      "name": "MathOverflow",
       "msg": "Mathematical operation overflow"
     },
     {
       "code": 6003,
-      "name": "insufficientFunds",
+      "name": "InsufficientFunds",
       "msg": "Insufficient funds"
     },
     {
       "code": 6004,
-      "name": "alreadyBorrowed",
+      "name": "AlreadyBorrowed",
       "msg": "An open borrow position already exists; repay before borrowing again"
     },
     {
       "code": 6005,
-      "name": "noBorrowFound",
+      "name": "NoBorrowFound",
       "msg": "No open borrow to repay"
     },
     {
       "code": 6006,
-      "name": "withdrawalQueueFull",
+      "name": "WithdrawalQueueFull",
       "msg": "Withdrawal queue is full; try again later"
     },
     {
       "code": 6007,
-      "name": "withdrawalQueueEmpty",
+      "name": "WithdrawalQueueEmpty",
       "msg": "Withdrawal queue is empty"
     },
     {
       "code": 6008,
-      "name": "queueEntryMismatch",
+      "name": "QueueEntryMismatch",
       "msg": "Provided account does not match the queued withdrawal entry"
     }
   ],
   "types": [
     {
-      "name": "pool",
+      "name": "Pool",
       "docs": [
         "Unified lending pool account stored as zero-copy.",
         "",
@@ -2302,77 +2296,77 @@ export type Jbl = {
             "type": "pubkey"
           },
           {
-            "name": "collateralMint",
+            "name": "collateral_mint",
             "docs": [
               "Mint of the token deposited as collateral (tracked raw, no LP issued)."
             ],
             "type": "pubkey"
           },
           {
-            "name": "lendMint",
+            "name": "lend_mint",
             "docs": [
               "Mint of the token lenders deposit and borrowers receive."
             ],
             "type": "pubkey"
           },
           {
-            "name": "lpMint",
+            "name": "lp_mint",
             "docs": [
               "LP token mint issued to lend-side depositors."
             ],
             "type": "pubkey"
           },
           {
-            "name": "totalCollateralDeposited",
+            "name": "total_collateral_deposited",
             "docs": [
               "Raw sum of collateral tokens deposited across all positions."
             ],
             "type": "u64"
           },
           {
-            "name": "totalLendDeposited",
+            "name": "total_lend_deposited",
             "docs": [
               "Sum of lend tokens currently deposited (basis for LP ratio and utilisation)."
             ],
             "type": "u64"
           },
           {
-            "name": "totalBorrowed",
+            "name": "total_borrowed",
             "type": "u64"
           },
           {
-            "name": "totalDebtShares",
+            "name": "total_debt_shares",
             "type": "u64"
           },
           {
-            "name": "lastAccrualTs",
+            "name": "last_accrual_ts",
             "type": "i64"
           },
           {
-            "name": "totalLpIssued",
+            "name": "total_lp_issued",
             "docs": [
               "Total LP tokens outstanding for the lend side."
             ],
             "type": "u64"
           },
           {
-            "name": "feeConfig",
+            "name": "fee_config",
             "type": {
               "defined": {
-                "name": "utilizationFeeConfig"
+                "name": "UtilizationFeeConfig"
               }
             }
           },
           {
-            "name": "ltvPercent",
+            "name": "ltv_percent",
             "type": "u8"
           },
           {
-            "name": "lpMintBump",
+            "name": "lp_mint_bump",
             "type": "u8"
           },
           {
-            "name": "pad",
+            "name": "_pad",
             "type": {
               "array": [
                 "u8",
@@ -2381,13 +2375,13 @@ export type Jbl = {
             }
           },
           {
-            "name": "withdrawalQueue",
+            "name": "withdrawal_queue",
             "docs": [
               "Queue of pending lend-token withdrawals (LP burned at `leave` time)."
             ],
             "type": {
               "defined": {
-                "name": "withdrawalQueue"
+                "name": "WithdrawalQueue"
               }
             }
           }
@@ -2395,7 +2389,7 @@ export type Jbl = {
       }
     },
     {
-      "name": "userPosition",
+      "name": "UserPosition",
       "docs": [
         "Tracks a user's collateral deposit and any open borrow position.",
         "Created on first collateral deposit; borrow fields populated when the user borrows."
@@ -2418,21 +2412,21 @@ export type Jbl = {
             "type": "pubkey"
           },
           {
-            "name": "collateralDeposited",
+            "name": "collateral_deposited",
             "docs": [
               "Raw amount of collateral tokens deposited (no shares — tracked 1:1)."
             ],
             "type": "u64"
           },
           {
-            "name": "lpTokensOwed",
+            "name": "lp_tokens_owed",
             "docs": [
               "LP tokens that will be minted when `take_lp` is called (legacy; 0 for collateral positions)."
             ],
             "type": "u64"
           },
           {
-            "name": "debtShares",
+            "name": "debt_shares",
             "docs": [
               "Debt shares held by this user (0 if no active borrow).",
               "Current debt = debt_shares * pool.total_borrowed / pool.total_debt_shares"
@@ -2447,7 +2441,7 @@ export type Jbl = {
       }
     },
     {
-      "name": "utilizationFeeConfig",
+      "name": "UtilizationFeeConfig",
       "serialization": "bytemuck",
       "repr": {
         "kind": "c"
@@ -2475,7 +2469,7 @@ export type Jbl = {
       }
     },
     {
-      "name": "withdrawalQueue",
+      "name": "WithdrawalQueue",
       "docs": [
         "Fixed-capacity circular-buffer queue of withdrawal requests embedded",
         "directly in `Pool` account data.  Exposed as zero-copy to avoid copying",
@@ -2497,7 +2491,7 @@ export type Jbl = {
             "type": "u16"
           },
           {
-            "name": "pad",
+            "name": "_pad",
             "type": {
               "array": [
                 "u8",
@@ -2511,7 +2505,7 @@ export type Jbl = {
               "array": [
                 {
                   "defined": {
-                    "name": "withdrawalQueueEntry"
+                    "name": "WithdrawalQueueEntry"
                   }
                 },
                 1024
@@ -2522,7 +2516,7 @@ export type Jbl = {
       }
     },
     {
-      "name": "withdrawalQueueEntry",
+      "name": "WithdrawalQueueEntry",
       "docs": [
         "A single pending withdrawal request.",
         "`user_position` and destination ATA are derived from `requester` at",
@@ -2555,9 +2549,9 @@ export type Jbl = {
   ],
   "constants": [
     {
-      "name": "seed",
+      "name": "SEED",
       "type": "string",
       "value": "\"anchor\""
     }
   ]
-};
+}
