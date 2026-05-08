@@ -33,20 +33,20 @@ export function WalletConnectButton() {
           onClick={() => setMenuOpen((v) => !v)}
           onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
           className={cn(
-            "flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2",
-            "text-xs font-medium text-gray-700 shadow-sm transition-all",
-            "hover:border-gray-300 hover:bg-gray-50",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2",
+            "flex items-center cursor-pointer gap-2 rounded-xl border border-[#c698e5]/25 bg-[#c698e5]/10 px-3 py-2",
+            "text-xs font-medium text-[#efe0f7] transition-all",
+            "hover:border-[#c698e5]/50 hover:bg-[#c698e5]/20",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c698e5]/50 focus-visible:ring-offset-0",
           )}
         >
-          <span className="h-1.5 w-1.5 rounded-full bg-green-500 shrink-0" />
-          <span className="font-mono tracking-tight">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#c698e5] shrink-0 shadow-[0_0_6px_#c698e5]" />
+          <span className="font-mono tracking-tight text-[#efe0f7]/80">
             {truncateAddress(address)}
           </span>
           <ChevronDown
             size={12}
             className={cn(
-              "text-gray-400 transition-transform duration-150",
+              "text-[#c698e5]/60 transition-transform duration-150",
               menuOpen && "rotate-180",
             )}
           />
@@ -54,14 +54,22 @@ export function WalletConnectButton() {
 
         {/* Dropdown */}
         {menuOpen && (
-          <div className="absolute right-0 mt-1.5 w-40 rounded-xl border border-gray-100 bg-white p-1 shadow-lg z-40">
+          <div className="absolute right-0 mt-2 w-44 rounded-xl border border-[#c698e5]/15 bg-[#1f0e2b] p-1 shadow-2xl z-40">
+            <div className="px-3 py-2 mb-1 border-b border-[#c698e5]/10">
+              <p className="text-[10px] uppercase tracking-widest text-[#efe0f7]/30">
+                Connected
+              </p>
+              <p className="text-xs font-mono text-[#c698e5] mt-0.5">
+                {truncateAddress(address)}
+              </p>
+            </div>
             <button
               type="button"
               onClick={handleDisconnect}
               className={cn(
-                "flex w-full items-center gap-2 rounded-lg px-2.5 py-2",
-                "text-xs font-medium text-red-500 transition-colors",
-                "hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300",
+                "flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2",
+                "text-xs font-medium text-[#d45677] transition-colors",
+                "hover:bg-[#d45677]/10 focus-visible:outline-none",
               )}
             >
               <LogOut size={13} />
@@ -81,18 +89,19 @@ export function WalletConnectButton() {
         onClick={openModal}
         disabled={connecting}
         className={cn(
-          "flex items-center gap-2 rounded-xl px-4 py-2",
-          "bg-gradient-to-r from-violet-500 to-indigo-600 text-xs font-semibold text-white shadow-sm",
-          "transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2",
+          "flex items-center cursor-pointer gap-2 rounded-xl px-4 py-2",
+          "bg-[#c698e5] text-xs font-semibold text-[#17081f]",
+          "transition-all hover:bg-[#d8b4f0] active:scale-95",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c698e5]/50 focus-visible:ring-offset-0",
           "disabled:pointer-events-none disabled:opacity-60",
         )}
       >
         {connecting ? (
-          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#17081f]/30 border-t-[#17081f]" />
         ) : (
           <Wallet size={13} />
         )}
-        {connecting ? "Connecting…" : "Connect Wallet"}
+        {connecting ? "Connecting…" : "Get Started"}
       </button>
 
       <WalletModal open={modalOpen} onClose={closeModal} />

@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { useWalletConnection } from "@solana/react-hooks";
 import { Download, X } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 // ── Featured wallets (always shown, icons hardcoded from wallet-standard) ──────
 
@@ -51,7 +52,7 @@ function WalletIcon({ icon, name }: { icon?: string; name: string }) {
     );
   }
   return (
-    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[11px] font-bold text-gray-400">
+    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#c698e5]/15 text-[11px] font-bold text-[#c698e5]">
       {name[0]?.toUpperCase() ?? "?"}
     </span>
   );
@@ -84,24 +85,24 @@ function WalletRow({
       className={cn(
         "group flex cursor-pointer w-full items-center gap-3 rounded-xl px-3 py-2.5",
         "text-left transition-colors duration-100",
-        "hover:bg-gray-50",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1",
+        "hover:bg-[#c698e5]/8",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c698e5]/40 focus-visible:ring-offset-0",
         "disabled:pointer-events-none disabled:opacity-50",
       )}
     >
       <WalletIcon icon={icon} name={name} />
-      <span className="flex-1 text-[13px] font-medium text-gray-800">
+      <span className="flex-1 text-[13px] font-medium text-[#efe0f7]">
         {name}
       </span>
       {connecting ? (
-        <span className="h-3 w-3 animate-spin rounded-full border-2 border-gray-200 border-t-violet-500" />
+        <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#c698e5]/20 border-t-[#c698e5]" />
       ) : detected ? (
-        <span className="flex items-center gap-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-          <span className="text-[11px] font-medium text-green-600">
+        <div className="flex gap-1 items-center">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#c698e5] shadow-[0_0_5px_#c698e5]" />
+          <span className="text-[10px] font-medium text-[#c698e5]/70">
             Detected
           </span>
-        </span>
+        </div>
       ) : null}
     </button>
   );
@@ -125,8 +126,8 @@ function WalletInstallRow({
       rel="noopener noreferrer"
       className={cn(
         "group flex cursor-pointer w-full items-center gap-3 rounded-xl px-3 py-2.5",
-        "transition-colors duration-100 hover:bg-gray-50",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1",
+        "transition-colors duration-100 hover:bg-[#c698e5]/5",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c698e5]/40 focus-visible:ring-offset-0",
       )}
     >
       <img
@@ -134,12 +135,12 @@ function WalletInstallRow({
         alt={name}
         width={28}
         height={28}
-        className="h-7 w-7 rounded-lg object-contain opacity-40 grayscale"
+        className="h-7 w-7 rounded-lg object-contain opacity-30 grayscale"
       />
-      <span className="flex-1 text-[13px] font-medium text-gray-400">
+      <span className="flex-1 text-[13px] font-medium text-[#efe0f7]/30">
         {name}
       </span>
-      <span className="flex items-center gap-1 text-[11px] font-medium text-gray-300 transition-colors group-hover:text-gray-400">
+      <span className="flex items-center gap-1 text-[11px] font-medium text-[#efe0f7]/20 transition-colors group-hover:text-[#c698e5]/60">
         <Download size={11} />
         Install
       </span>
@@ -191,34 +192,34 @@ export function WalletModal({ open, onClose }: WalletModalProps) {
     (c) => !FEATURED.some((f) => matchesKey(c.name, f.key)),
   );
 
-  return (
+  return createPortal(
     <div
       ref={overlayRef}
       role="dialog"
       aria-modal="true"
       aria-label="Connect wallet"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
     >
-      <div className="relative w-full space-y-3 max-w-[380px] rounded-[24px] border border-gray-100 bg-white shadow-2xl">
+      <div className="relative w-full space-y-3 max-w-[380px] rounded-[24px] border border-[#c698e5]/15 bg-[#1a0a24] shadow-[0_25px_60px_rgba(0,0,0,0.6)]">
         {/* Close */}
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute cursor-pointer right-4 top-4 z-10 rounded-full p-1.5 text-gray-300 transition-colors hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
+          className="absolute cursor-pointer right-4 top-4 z-10 rounded-full p-1.5 text-[#efe0f7]/25 transition-colors hover:bg-[#c698e5]/10 hover:text-[#c698e5] focus-visible:outline-none"
         >
           <X size={16} />
         </button>
 
         {/* Header */}
         <div className="px-6 text-center pb-4 pt-7">
-          <p className="text-[15px] font-semibold text-gray-900">
+          <p className="text-[15px] font-semibold text-[#efe0f7]">
             Connect wallet
           </p>
-          <p className="mt-0.5 text-xs text-gray-400">
+          <p className="mt-0.5 text-xs text-[#efe0f7]/35">
             Select a wallet to continue
           </p>
         </div>
@@ -248,7 +249,7 @@ export function WalletModal({ open, onClose }: WalletModalProps) {
 
           {extraConnectors.length > 0 && (
             <>
-              <div className="my-1.5 h-px bg-gray-100" />
+              <div className="my-1.5 h-px bg-[#c698e5]/10" />
               {extraConnectors.map((c) => (
                 <WalletRow
                   key={c.id}
@@ -265,13 +266,14 @@ export function WalletModal({ open, onClose }: WalletModalProps) {
         </div>
 
         {/* Footer — no divider, just soft spacing */}
-        <p className="px-6 text-center pb-5 pt-2 text-[11px] text-gray-400">
+        <p className="px-6 text-center pb-5 pt-2 text-[11px] text-[#efe0f7]/25">
           By connecting you agree to the{" "}
-          <span className="cursor-pointer text-gray-500 underline underline-offset-2">
+          <span className="cursor-pointer text-[#c698e5]/60 underline underline-offset-2 hover:text-[#c698e5]">
             Terms of Service
           </span>
         </p>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
