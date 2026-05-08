@@ -74,3 +74,74 @@
     line-height: 1;
   }
 }
+
+/* ── react-toastify overrides ───────────────────────────────────────────── */
+@import "react-toastify/dist/ReactToastify.css";
+
+.jbl-toast {
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  border-radius: 12px !important;
+  border: 1px solid transparent;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18) !important;
+  padding: 12px 16px !important;
+  min-height: unset !important;
+  backdrop-filter: blur(10px);
+}
+
+.jbl-toast__body {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* success */
+.Toastify__toast--success.jbl-toast {
+  background: color-mix(in srgb, #22c55e 12%, var(--color-card)) !important;
+  color: #16a34a !important;
+  border-color: #22c55e33;
+}
+
+/* error */
+.Toastify__toast--error.jbl-toast {
+  background: color-mix(in srgb, #ef4444 12%, var(--color-card)) !important;
+  color: #dc2626 !important;
+  border-color: #ef444433;
+}
+
+/* loading / info */
+.Toastify__toast--default.jbl-toast,
+.Toastify__toast--info.jbl-toast {
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-card)) !important;
+  color: var(--color-foreground) !important;
+  border-color: color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+/* progress bar */
+.Toastify__progress-bar {
+  height: 2px !important;
+  opacity: 0.5 !important;
+}
+
+/* close button */
+.Toastify__close-button {
+  align-self: center;
+  opacity: 0.4;
+  color: inherit !important;
+}
+.Toastify__close-button:hover {
+  opacity: 0.8;
+}
+
+@media (prefers-color-scheme: dark) {
+  .Toastify__toast--success.jbl-toast {
+    color: #4ade80 !important;
+  }
+  .Toastify__toast--error.jbl-toast {
+    color: #f87171 !important;
+  }
+}
