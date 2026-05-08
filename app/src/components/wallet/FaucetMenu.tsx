@@ -1,5 +1,5 @@
+import { useLendingAccounts } from "@/hooks/program/useLendingAccounts";
 import { useFaucet } from "@/hooks/useFaucet";
-import { useLendingAccounts } from "@/hooks/useLendingAccounts";
 import { cn } from "@/lib/utils";
 import type { PublicKey } from "@solana/web3.js";
 import { Droplets, Loader2 } from "lucide-react";
@@ -53,9 +53,14 @@ export function FaucetMenu() {
 
   if (!pools || pools.length === 0) return null;
 
-  // Deduplicate by mint address
+  // Collect all unique mints (both collateral and lend) across all pools
   const uniqueMints = Array.from(
-    new Map(pools.map((p) => [p.mint.toBase58(), p.mint])).values(),
+    new Map(
+      pools.flatMap((p) => [
+        [p.collateralMint.toBase58(), p.collateralMint],
+        [p.lendMint.toBase58(), p.lendMint],
+      ]),
+    ).values(),
   );
 
   return (
