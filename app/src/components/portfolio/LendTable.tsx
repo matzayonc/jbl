@@ -1,0 +1,136 @@
+import { TD, TH } from "@/components/common/tableStyles";
+import { useLendPositions } from "@/hooks/usePortfolio";
+import type { LendPosition } from "@/types/portfolio";
+import { useState } from "react";
+import { HealthBadge } from "../common/Badge";
+import { EmptyTableState } from "../common/EmptyTableState";
+import { PositionActionButton } from "../common/PositionActionButton";
+import { SupplyMoreModal } from "./SupplyMoreModal";
+import { WithdrawModal } from "./WithdrawModal";
+
+type ModalState =
+  | { type: "withdraw"; position: LendPosition }
+  | { type: "supply"; position: LendPosition }
+  | null;
+
+export function LendTable() {
+  const { data: positions = [], isLoading } = useLendPositions();
+  const [modal, setModal] = useState<ModalState>(null);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16 text-[#efe0f7]/30 text-sm">
+        Loading positions…
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="overflow-x-auto">
+        {positions.length === 0 ? (
+          <EmptyTableState />
+        ) : (
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-[#c698e5]/10">
+                <th className={TH}>Asset</th>
+                <th className={TH + " text-right"}>Supplied</th>
+                <th className={TH + " text-right"}>APY</th>
+                <th className={TH + " text-right"}>Earned</th>
+                <th className={TH + " text-center"}>Health</th>
+                <th className={TH + " text-center"}>Collateral</th>
+                <th className={TH + " text-right"}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {positions.map((pos, i) => (
+                <tr
+                  key={pos.id}
+                  className={`border-b border-[#c698e5]/6 hover:bg-[#c698e5]/[0.03] transition-colors ${
+                    i === positions.length - 1 ? "border-none" : ""
+                  }`}
+                >
+                  <td className={TD + " w-full"}>
+                    <div className="flex items-center gap-2.5">
+                      <img
+                        src={pos.icon}
+                        alt={pos.asset}
+                        className="h-6 w-6 rounded-full"
+                      />
+                      <span className="font-semibold text-[#efe0f7]">
+                        {pos.asset}
+                      </span>
+                    </div>
+                  </td>
+                  <td className={TD + " text-right tabular-nums font-medium"}>
+                    ${pos.supplied.toLocaleString()}
+                  </td>
+                  <td
+                    className={
+                      TD +
+                      " text-right text-[#34d399] font-semibold tabular-nums"
+                    }
+                  >
+                    {pos.apy.toFixed(2)}%
+                  </td>
+                  <td
+                    className={TD + " text-right text-[#34d399] tabular-nums"}
+                  >
+                    +$
+                    {pos.earned < 1
+                      ? pos.earned.toFixed(3)
+                      : pos.earned.toFixed(2)}
+                  </td>
+                  <td className={TD + " text-center"}>
+                    <HealthBadge value={pos.health} />
+                  </td>
+                  <td className={TD + " text-center"}>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                        pos.collateralEnabled
+                          ? "bg-[#34d399]/10 text-[#34d399]"
+                          : "bg-[#efe0f7]/8 text-[#efe0f7]/35"
+                      }`}
+                    >
+                      {pos.collateralEnabled ? "On" : "Off"}
+                    </span>
+                  </td>
+                  <td className={TD + " text-right"}>
+                    <div className="flex items-center justify-end gap-2">
+                      <PositionActionButton
+                        label="Supply More"
+                        onClick={() =>
+                          setModal({ type: "supply", position: pos })
+                        }
+                      />
+                      <PositionActionButton
+                        label="Withdraw"
+                        onClick={() =>
+                          setModal({ type: "withdraw", position: pos })
+                        }
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {modal?.type === "withdraw" && (
+        <WithdrawModal
+          position={modal.position}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.type === "supply" && (
+        <SupplyMoreModal
+          position={modal.position}
+          onClose={() => setModal(null)}
+        />
+      )}
+    </>
+  );
+}
