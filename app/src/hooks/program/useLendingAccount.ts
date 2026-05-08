@@ -1,12 +1,10 @@
 import { PublicKey } from '@solana/web3.js'
 import { useQuery } from '@tanstack/react-query'
-import { program } from '../lib/program'
-import { queryKeys } from '../lib/queryKeys'
-import type { PoolData } from '../types/lending'
+import { program } from '../../lib/program'
+import { queryKeys } from '../../lib/queryKeys'
+import type { PoolData } from '../../types/lending'
 
 export type { PoolData }
-/** @deprecated Use PoolData instead */
-export type { PoolData as LendingAccountData }
 
 function mapPool(publicKey: PublicKey, data: Awaited<ReturnType<typeof program.account.pool.fetch>>): PoolData {
     return {
