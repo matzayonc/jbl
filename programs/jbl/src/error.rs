@@ -28,4 +28,10 @@ pub enum ErrorCode {
     Unauthorized,
     #[msg("Hedge duration has not yet elapsed; cannot settle")]
     HedgeNotYetMatured,
+    #[msg("Flash loan: repay amount is less than borrowed amount plus fee")]
+    FlashLoanFeeNotCovered,
+    #[msg("Flash loan: no matching flash_repay instruction found in this transaction")]
+    FlashRepayMissing,
+    #[msg("Flash loan: no matching flash_borrow instruction found in this transaction")]
+    FlashBorrowMissing,
 }

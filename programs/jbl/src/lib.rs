@@ -76,6 +76,18 @@ pub mod jbl {
         settle_rate_hedge_match_handler(ctx)
     }
 
+    pub fn mock_swap(ctx: Context<MockSwap>, amount: u64) -> Result<()> {
+        mock_swap_handler(ctx, amount)
+    }
+
+    pub fn flash_borrow(ctx: Context<FlashBorrow>, amount: u64) -> Result<()> {
+        flash_borrow_handler(ctx, amount)
+    }
+
+    pub fn flash_repay(ctx: Context<FlashRepay>, amount: u64) -> Result<()> {
+        flash_repay_handler(ctx, amount)
+    }
+
     pub fn create_rate_hedge_offer(
         ctx: Context<CreateRateHedgeOffer>,
         fixed_rate_bps: u64,
