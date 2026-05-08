@@ -1,4 +1,4 @@
-import { formatLargeUSD } from "@/lib/chartUtils";
+import { formatLargeUSD } from "@/lib/formatters";
 
 interface UtilizationGaugeProps {
   utilization: number;

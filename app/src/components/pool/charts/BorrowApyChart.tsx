@@ -1,5 +1,5 @@
 import { ChartRangePicker } from "@/components/common/ChartRangePicker";
-import { dateLabel, seededRand, thinData } from "@/lib/chartUtils";
+import { dateLabel, seededRand, thinData } from "@/lib/formatters";
 import { useMemo, useState } from "react";
 import {
   Area,

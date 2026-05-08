@@ -4,7 +4,8 @@ import {
   formatLargeUSD,
   seededRand,
   thinData,
-} from "@/lib/chartUtils";
+} from "@/lib/formatters";
+
 import { useMemo, useState } from "react";
 import {
   Area,
