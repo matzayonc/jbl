@@ -27,24 +27,25 @@ export function PoolDetailPage() {
     [pool],
   );
 
-  if (isLoading) {
+  if (isLoading || !pool) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh] text-[#efe0f7]/30 text-sm">
-        Loading pool…
-      </div>
-    );
-  }
-
-  if (!pool) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <p className="text-[#efe0f7]/50 text-sm">Pool not found.</p>
-        <button
-          onClick={() => navigate("/")}
-          className="text-xs text-[#c698e5] hover:underline"
-        >
-          ← Back to markets
-        </button>
+      <div className="w-full max-w-6xl mx-auto px-4 py-12">
+        <BackButton to="/" label="Back to markets" />
+        <div className="flex flex-col items-center justify-center py-28 gap-4">
+          {isLoading ? (
+            <p className="text-[#efe0f7]/30 text-sm">Loading pool…</p>
+          ) : (
+            <>
+              <p className="text-[#efe0f7]/50 text-sm">Pool not found.</p>
+              <button
+                onClick={() => navigate("/")}
+                className="text-xs text-[#c698e5] hover:underline"
+              >
+                ← Back to markets
+              </button>
+            </>
+          )}
+        </div>
       </div>
     );
   }

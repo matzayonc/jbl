@@ -46,17 +46,13 @@ export function MultiplyPage() {
         </div>
       </div>
 
-      <MultiplyTable pools={pools} />
-
-      {isLoading && (
-        <p className="mt-4 text-center text-xs text-[#efe0f7]/30">
+      {isLoading ? (
+        <div className="flex items-center justify-center py-32 text-[#efe0f7]/30 text-sm">
           Loading strategies…
-        </p>
+        </div>
+      ) : (
+        <MultiplyTable pools={pools} />
       )}
-
-      <p className="mt-4 text-center text-xs text-[#efe0f7]/30">
-        Click any position to view details and open a leveraged trade.
-      </p>
     </div>
   );
 }

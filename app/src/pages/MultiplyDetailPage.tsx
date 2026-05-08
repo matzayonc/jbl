@@ -25,24 +25,25 @@ export function MultiplyDetailPage() {
     [strategy],
   );
 
-  if (isLoading) {
+  if (isLoading || !strategy) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh] text-[#efe0f7]/30 text-sm">
-        Loading strategy…
-      </div>
-    );
-  }
-
-  if (!strategy) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <p className="text-[#efe0f7]/50 text-sm">Strategy not found.</p>
-        <button
-          onClick={() => navigate("/multiply")}
-          className="text-xs text-[#c698e5] hover:underline cursor-pointer"
-        >
-          ← Back to Multiply
-        </button>
+      <div className="w-full max-w-6xl mx-auto px-4 py-12">
+        <BackButton to="/multiply" label="Back to Multiply" />
+        <div className="flex flex-col items-center justify-center py-28 gap-4">
+          {isLoading ? (
+            <p className="text-[#efe0f7]/30 text-sm">Loading strategy…</p>
+          ) : (
+            <>
+              <p className="text-[#efe0f7]/50 text-sm">Strategy not found.</p>
+              <button
+                onClick={() => navigate("/multiply")}
+                className="text-xs text-[#c698e5] hover:underline cursor-pointer"
+              >
+                ← Back to Multiply
+              </button>
+            </>
+          )}
+        </div>
       </div>
     );
   }

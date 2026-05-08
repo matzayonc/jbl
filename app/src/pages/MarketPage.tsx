@@ -46,14 +46,6 @@ export function MarketPage() {
     [allPools, search, categoryFilter, sortKey, sortDir],
   );
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh] text-[#efe0f7]/30 text-sm">
-        Loading markets…
-      </div>
-    );
-  }
-
   return (
     <div className="w-full max-w-6xl mx-auto px-4 py-12">
       <div className="mb-8">
@@ -76,12 +68,18 @@ export function MarketPage() {
         onCategoryChange={setCategoryFilter}
       />
 
-      <MarketTable
-        pools={filteredPools}
-        sortKey={sortKey}
-        sortDir={sortDir}
-        onSort={handleSort}
-      />
+      {isLoading ? (
+        <div className="flex items-center justify-center py-32 text-[#efe0f7]/30 text-sm">
+          Loading markets…
+        </div>
+      ) : (
+        <MarketTable
+          pools={filteredPools}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={handleSort}
+        />
+      )}
     </div>
   );
 }
