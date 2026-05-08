@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { useWalletConnection } from "@solana/react-hooks";
 import { ChevronDown, LogOut, Wallet } from "lucide-react";
 import { useCallback, useState } from "react";
+import { FaucetMenu } from "./FaucetMenu";
 import { WalletModal } from "./WalletModal";
 
 function truncateAddress(address: string): string {
@@ -63,6 +64,8 @@ export function WalletConnectButton() {
                 {truncateAddress(address)}
               </p>
             </div>
+            <FaucetMenu />
+            <div className="mx-3 my-1 border-t border-[#c698e5]/10" />
             <button
               type="button"
               onClick={handleDisconnect}

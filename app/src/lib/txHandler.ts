@@ -1,6 +1,6 @@
-import { toast } from 'react-toastify'
 import type { WalletSession } from '@solana/client'
 import { Transaction } from '@solana/web3.js'
+import { toast } from 'react-toastify'
 import { connection } from './program'
 import { signAndSendV1 } from './transactions'
 
