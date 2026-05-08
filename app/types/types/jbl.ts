@@ -432,6 +432,194 @@ export type Jbl = {
       ]
     },
     {
+      "name": "createRateHedgeOffer",
+      "discriminator": [
+        236,
+        216,
+        29,
+        109,
+        56,
+        45,
+        170,
+        97
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "docs": [
+            "The lending pool this offer is associated with."
+          ]
+        },
+        {
+          "name": "rateHedgeOffer",
+          "docs": [
+            "The offer PDA.",
+            "",
+            "Seeds encode the offer parameters so two offers from the same user with different",
+            "rates/durations occupy separate accounts and cannot alias."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  97,
+                  116,
+                  101,
+                  95,
+                  104,
+                  101,
+                  100,
+                  103,
+                  101,
+                  95,
+                  111,
+                  102,
+                  102,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "authority"
+              },
+              {
+                "kind": "arg",
+                "path": "fixedRateBps"
+              },
+              {
+                "kind": "arg",
+                "path": "minDuration"
+              },
+              {
+                "kind": "arg",
+                "path": "maxDuration"
+              }
+            ]
+          }
+        },
+        {
+          "name": "offerCollateralVault",
+          "docs": [
+            "Token vault that holds the collateral locked for this offer.",
+            "",
+            "Authority is the program-wide `state` PDA so only this program can move tokens out."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  97,
+                  116,
+                  101,
+                  95,
+                  104,
+                  101,
+                  100,
+                  103,
+                  101,
+                  95,
+                  111,
+                  102,
+                  102,
+                  101,
+                  114,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "rateHedgeOffer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "collateralMint",
+          "docs": [
+            "The collateral mint for this pool."
+          ]
+        },
+        {
+          "name": "userCollateralTokenAccount",
+          "docs": [
+            "The user's collateral token account (source of the locked collateral)."
+          ],
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "docs": [
+            "The user creating the offer. Pays for account rent and provides collateral."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "fixedRateBps",
+          "type": "u64"
+        },
+        {
+          "name": "minDuration",
+          "type": "u64"
+        },
+        {
+          "name": "maxDuration",
+          "type": "u64"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "collateralAmount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "deposit",
       "discriminator": [
         242,
@@ -2211,6 +2399,19 @@ export type Jbl = {
       ]
     },
     {
+      "name": "rateHedgeOffer",
+      "discriminator": [
+        230,
+        108,
+        16,
+        5,
+        48,
+        211,
+        101,
+        105
+      ]
+    },
+    {
       "name": "userPosition",
       "discriminator": [
         251,
@@ -2269,6 +2470,21 @@ export type Jbl = {
       "code": 6008,
       "name": "queueEntryMismatch",
       "msg": "Provided account does not match the queued withdrawal entry"
+    },
+    {
+      "code": 6009,
+      "name": "invalidDurationRange",
+      "msg": "min_duration must be > 0 and <= max_duration"
+    },
+    {
+      "code": 6010,
+      "name": "invalidMint",
+      "msg": "Provided mint does not match the pool's expected mint"
+    },
+    {
+      "code": 6011,
+      "name": "unauthorized",
+      "msg": "Signer is not authorized for this account"
     }
   ],
   "types": [
@@ -2390,6 +2606,76 @@ export type Jbl = {
                 "name": "withdrawalQueue"
               }
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "rateHedgeOffer",
+      "docs": [
+        "An offer to hedge interest-rate risk at a fixed rate.",
+        "",
+        "The creator locks `collateral_deposited` tokens as collateral for the duration of any",
+        "accepted match. The PDA seeds encode the offer parameters so two distinct offers with",
+        "different rates or durations cannot alias each other.",
+        "",
+        "Seeds: `[\"rate_hedge_offer\", pool, authority, fixed_rate_le, min_duration_le, max_duration_le]`"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "docs": [
+              "The pool this offer is associated with."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "authority",
+            "docs": [
+              "The user who created the offer."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "docs": [
+              "Notional amount of lend tokens covered by this offer."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "fixedRateBps",
+            "docs": [
+              "Fixed interest rate in basis points (e.g. 500 = 5.00 %)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "minDuration",
+            "docs": [
+              "Minimum acceptable duration for a match, in seconds."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "maxDuration",
+            "docs": [
+              "Maximum acceptable duration for a match, in seconds."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "collateralDeposited",
+            "docs": [
+              "Collateral tokens locked as security when the offer was created."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
           }
         ]
       }

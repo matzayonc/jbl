@@ -20,4 +20,12 @@ pub enum ErrorCode {
     WithdrawalQueueEmpty,
     #[msg("Provided account does not match the queued withdrawal entry")]
     QueueEntryMismatch,
+    #[msg("min_duration must be > 0 and <= max_duration")]
+    InvalidDurationRange,
+    #[msg("Provided mint does not match the pool's expected mint")]
+    InvalidMint,
+    #[msg("Signer is not authorized for this account")]
+    Unauthorized,
+    #[msg("Hedge duration has not yet elapsed; cannot settle")]
+    HedgeNotYetMatured,
 }

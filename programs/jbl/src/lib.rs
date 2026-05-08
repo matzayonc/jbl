@@ -63,4 +63,34 @@ pub mod jbl {
     pub fn process_vault_queue_entry(ctx: Context<ProcessVaultQueueEntry>) -> Result<()> {
         process_vault_queue_entry_handler(ctx)
     }
+
+    pub fn borrow_with_hedge(
+        ctx: Context<BorrowWithHedge>,
+        amount: u64,
+        duration: u64,
+    ) -> Result<()> {
+        borrow_with_hedge_handler(ctx, amount, duration)
+    }
+
+    pub fn settle_rate_hedge_match(ctx: Context<SettleRateHedgeMatch>) -> Result<()> {
+        settle_rate_hedge_match_handler(ctx)
+    }
+
+    pub fn create_rate_hedge_offer(
+        ctx: Context<CreateRateHedgeOffer>,
+        fixed_rate_bps: u64,
+        min_duration: u64,
+        max_duration: u64,
+        amount: u64,
+        collateral_amount: u64,
+    ) -> Result<()> {
+        create_rate_hedge_offer_handler(
+            ctx,
+            fixed_rate_bps,
+            min_duration,
+            max_duration,
+            amount,
+            collateral_amount,
+        )
+    }
 }
