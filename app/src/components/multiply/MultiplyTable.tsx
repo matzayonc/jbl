@@ -1,5 +1,7 @@
-import { MULTIPLY_META, formatUSD, type Pool } from "@/data/pools";
+import { formatUSD } from "@/lib/formatters";
+import { MULTIPLY_META } from "@/lib/mocks/multiply.mock";
 import { cn } from "@/lib/utils";
+import type { Pool } from "@/types/pool";
 import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router";
 

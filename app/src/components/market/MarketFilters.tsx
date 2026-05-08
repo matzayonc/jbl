@@ -1,6 +1,6 @@
-import type { Category } from "@/data/pools";
-import { CATEGORY_FILTERS } from "@/data/pools";
+import { CATEGORY_FILTERS } from "@/constants/categories";
 import { cn } from "@/lib/utils";
+import type { Category } from "@/types/pool";
 import { Search } from "lucide-react";
 
 interface MarketFiltersProps {

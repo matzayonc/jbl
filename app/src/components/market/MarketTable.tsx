@@ -1,5 +1,6 @@
-import { formatUSD, type Pool } from "@/data/pools";
+import { formatUSD } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
+import type { Pool } from "@/types/pool";
 import {
   ChevronDown,
   ChevronRight,

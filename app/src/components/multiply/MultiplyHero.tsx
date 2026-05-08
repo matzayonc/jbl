@@ -1,5 +1,6 @@
 import { ActionButton } from "@/components/common/ActionButton";
-import { MULTIPLY_META, type Pool } from "@/data/pools";
+import { MULTIPLY_META } from "@/lib/mocks/multiply.mock";
+import type { Pool } from "@/types/pool";
 import { Zap } from "lucide-react";
 
 interface MultiplyHeroProps {

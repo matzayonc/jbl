@@ -1,5 +1,6 @@
-import { MULTIPLY_META, type Pool } from "@/data/pools";
+import { MULTIPLY_META } from "@/lib/mocks/multiply.mock";
 import { cn } from "@/lib/utils";
+import type { Pool } from "@/types/pool";
 import { Info, Shield, TrendingUp, Wallet, X, Zap } from "lucide-react";
 import { useState } from "react";
 

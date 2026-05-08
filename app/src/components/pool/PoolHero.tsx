@@ -1,6 +1,7 @@
 import { ActionButton } from "@/components/common/ActionButton";
-import { formatUSD, type Category, type Pool } from "@/data/pools";
+import { formatUSD } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
+import type { Category, Pool } from "@/types/pool";
 import { ExternalLink, TrendingDown, TrendingUp } from "lucide-react";
 
 const CATEGORY_BADGE: Record<Category, { label: string; classes: string }> = {

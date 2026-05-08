@@ -1,5 +1,5 @@
-import { type Pool } from "@/data/pools";
 import { cn } from "@/lib/utils";
+import type { Pool } from "@/types/pool";
 import { AlertTriangle, Info, Wallet, X } from "lucide-react";
 import { useState } from "react";
 

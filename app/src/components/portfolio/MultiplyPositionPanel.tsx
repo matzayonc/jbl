@@ -1,6 +1,8 @@
-import type { Pool } from "@/data/pools";
-import { POOLS } from "@/data/pools";
+import { POOLS } from "@/lib/mocks/pools.mock";
+import type { Pool } from "@/types/pool";
 import { useState } from "react";
+import { PnlCell } from "../common/PnlCell";
+import { PositionActionButton } from "../common/PositionActionButton";
 import {
   ClosePositionModal,
   type CloseMultiplyPosition,
@@ -9,7 +11,6 @@ import {
   ManagePositionModal,
   type ManageMultiplyPosition,
 } from "./ManagePositionModal";
-import { ActionBtn, PnlCell } from "./PortfolioShared";
 
 // ─── Mock position data keyed by pool.id ──────────────────────────────────────
 
@@ -152,11 +153,11 @@ export function MultiplyPositionPanel({
 
           {/* Actions */}
           <div className="flex items-center gap-2 ml-auto">
-            <ActionBtn
+            <PositionActionButton
               label="Manage"
               onClick={() => setModal({ type: "manage", pos })}
             />
-            <ActionBtn
+            <PositionActionButton
               label="Close"
               onClick={() => setModal({ type: "close", pos })}
             />

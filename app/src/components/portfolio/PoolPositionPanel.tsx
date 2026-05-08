@@ -1,9 +1,10 @@
-import type { Pool } from "@/data/pools";
-import { POOLS } from "@/data/pools";
+import { POOLS } from "@/lib/mocks/pools.mock";
 import { cn } from "@/lib/utils";
+import type { Pool } from "@/types/pool";
 import { useState } from "react";
+import { HealthBadge, HFBadge } from "../common/Badge";
+import { PositionActionButton } from "../common/PositionActionButton";
 import { type AddCollateralPosition } from "./AddCollateralModal";
-import { ActionBtn, HFBadge, HealthBadge } from "./PortfolioShared";
 import { RepayModal, type RepayPosition } from "./RepayModal";
 import { type SupplyMorePosition } from "./SupplyMoreModal";
 import { WithdrawModal, type WithdrawPosition } from "./WithdrawModal";
@@ -145,7 +146,7 @@ function LendRow({
 
       {/* Actions — only Withdraw, no Supply more */}
       <div className="flex items-center gap-2 ml-auto">
-        <ActionBtn label="Withdraw" onClick={onWithdraw} />
+        <PositionActionButton label="Withdraw" onClick={onWithdraw} />
       </div>
     </div>
   );
@@ -206,7 +207,7 @@ function BorrowRow({ pos, onRepay }: { pos: BorrowPos; onRepay: () => void }) {
 
       {/* Actions — only Repay, no Add collateral */}
       <div className="flex items-center gap-2 ml-auto">
-        <ActionBtn label="Repay" onClick={onRepay} />
+        <PositionActionButton label="Repay" onClick={onRepay} />
       </div>
     </div>
   );
