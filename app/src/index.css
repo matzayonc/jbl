@@ -43,6 +43,19 @@
 }
 
 @layer base {
+  *,
+  *::before,
+  *::after {
+    outline: none !important;
+    box-shadow: none;
+  }
+
+  *:focus,
+  *:focus-visible,
+  *:focus-within {
+    outline: none !important;
+  }
+
   html {
     font-family: var(--font-sans);
     font-size: 18px;
@@ -55,5 +68,9 @@
 
   body {
     margin: 0;
+  }
+
+  button {
+    line-height: 1;
   }
 }
