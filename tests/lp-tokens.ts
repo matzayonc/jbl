@@ -1,13 +1,14 @@
 import * as anchor from "@anchor-lang/core";
+import { BN } from "@anchor-lang/core";
 import { PublicKey } from "@solana/web3.js";
-import { getAccount, TokenAccountNotFoundError } from "@solana/spl-token";
+import { getAccount } from "@solana/spl-token";
 import { expect } from "chai";
-import { setupTest, TestSetup } from "./utils";
+import { setupTest, participateInPool, TestSetup } from "./utils";
 
 describe("lp tokens", () => {
-    // ── 1. Full round trip: deposit → take_lp → put_lp ───────────────────────
-    describe("take_lp then put_lp restores position balance", () => {
-        const DEPOSIT_AMOUNT = 100_000_000; // 100 tokens (6 decimals)
+    // ── 1. participate mints LP tokens proportionally ─────────────────────────
+    describe("participate mints LP tokens to the user", () => {
+        const PARTICIPATE_AMOUNT = 100_000_000;
 
         let setup: TestSetup;
         let userLpTokenAccount: PublicKey;
@@ -18,64 +19,69 @@ describe("lp tokens", () => {
                 mint: setup.lpMintPda,
                 owner: setup.authority.publicKey,
             });
+            await participateInPool(setup, PARTICIPATE_AMOUNT);
         });
 
-        it("mints LP tokens to user wallet after take_lp", async () => {
-            const { program, mint, pool, userTokenAccount, authority, connection } = setup;
-
-            await program.methods
-                .deposit(new anchor.BN(DEPOSIT_AMOUNT))
-                .accounts({ pool, mint, authority: authority.publicKey, userTokenAccount })
-                .signers([authority])
-                .rpc();
-
-            // take_lp closes the user_position PDA and mints LP tokens into user's wallet
-            await program.methods
-                .takeLp(new anchor.BN(DEPOSIT_AMOUNT))
-                .accounts({ pool, mint, authority: authority.publicKey, userLpTokenAccount })
-                .signers([authority])
-                .rpc();
-
+        it("mints LP tokens to user wallet after participate", async () => {
+            const { connection } = setup;
             const lpAccount = await getAccount(connection, userLpTokenAccount);
-            expect(lpAccount.amount.toString()).to.equal(DEPOSIT_AMOUNT.toString());
-
-            const poolAccount = await program.account.pool.fetch(pool);
-            expect(poolAccount.totalLpIssued.toString()).to.equal(DEPOSIT_AMOUNT.toString());
-            expect(poolAccount.totalDeposited.toString()).to.equal(DEPOSIT_AMOUNT.toString());
+            expect(lpAccount.amount.toString()).to.equal(PARTICIPATE_AMOUNT.toString());
         });
 
-        it("burns LP tokens and credits deposited_amount on put_lp", async () => {
-            const { program, mint, pool, userPositionPda, authority, connection } = setup;
+        it("pool records total_lp_issued and total_lend_deposited", async () => {
+            const poolAccount = await setup.program.account.pool.fetch(setup.pool);
+            expect(poolAccount.totalLpIssued.toString()).to.equal(PARTICIPATE_AMOUNT.toString());
+            expect(poolAccount.totalLendDeposited.toString()).to.equal(PARTICIPATE_AMOUNT.toString());
+        });
+    });
+
+    // ── 2. put_lp burns LP tokens and credits collateral_deposited ────────────
+    describe("put_lp burns LP and creates a position", () => {
+        const PARTICIPATE_AMOUNT = 100_000_000;
+
+        let setup: TestSetup;
+        let userLpTokenAccount: PublicKey;
+
+        before(async () => {
+            setup = await setupTest();
+            userLpTokenAccount = anchor.utils.token.associatedAddress({
+                mint: setup.lpMintPda,
+                owner: setup.authority.publicKey,
+            });
+            await participateInPool(setup, PARTICIPATE_AMOUNT);
+        });
+
+        it("burns LP tokens and creates position with collateral_deposited", async () => {
+            const { program, pool, userPositionPda, authority, connection } = setup;
 
             await program.methods
-                .putLp(new anchor.BN(DEPOSIT_AMOUNT))
-                .accounts({ pool: setup.pool, mint, authority: authority.publicKey, userLpTokenAccount })
+                .putLp(new BN(PARTICIPATE_AMOUNT))
+                .accounts({ pool, authority: authority.publicKey, userLpTokenAccount })
                 .signers([authority])
                 .rpc();
 
-            // LP tokens are burned
+            // LP tokens are burned.
             const lpAccount = await getAccount(connection, userLpTokenAccount);
             expect(lpAccount.amount.toString()).to.equal("0");
 
-            // Position re-created with underlying value
+            // Position created with underlying lend value as collateral_deposited.
             const position = await program.account.userPosition.fetch(userPositionPda);
             expect(position.authority.toString()).to.equal(authority.publicKey.toString());
             expect(position.pool.toString()).to.equal(pool.toString());
-            expect(position.depositedAmount.toString()).to.equal(DEPOSIT_AMOUNT.toString());
+            expect(position.collateralDeposited.toNumber()).to.be.greaterThan(0);
             expect(position.lpTokensOwed.toString()).to.equal("0");
             expect(position.debtShares.toString()).to.equal("0");
 
-            // Pool LP supply is now zero
+            // Pool LP supply is now zero.
             const poolAccount = await program.account.pool.fetch(pool);
             expect(poolAccount.totalLpIssued.toString()).to.equal("0");
-            expect(poolAccount.totalDeposited.toString()).to.equal(DEPOSIT_AMOUNT.toString());
         });
     });
 
-    // ── 2. Withdraw underlying tokens after put_lp ───────────────────────────
-    describe("withdraw after take_lp then put_lp recovers underlying tokens", () => {
-        const DEPOSIT_AMOUNT = 100_000_000;
-        const INITIAL_BALANCE = 1_000_000_000;
+    // ── 3. put_lp with partial LP amount leaves remaining LP intact ───────────
+    describe("put_lp with partial LP amount", () => {
+        const PARTICIPATE_AMOUNT = 100_000_000;
+        const PUT_AMOUNT = 40_000_000;
 
         let setup: TestSetup;
         let userLpTokenAccount: PublicKey;
@@ -86,94 +92,27 @@ describe("lp tokens", () => {
                 mint: setup.lpMintPda,
                 owner: setup.authority.publicKey,
             });
-
-            const { program, mint, userTokenAccount, authority } = setup;
-
-            await program.methods
-                .deposit(new anchor.BN(DEPOSIT_AMOUNT))
-                .accounts({ pool: setup.pool, mint, authority: authority.publicKey, userTokenAccount })
-                .signers([authority])
-                .rpc();
-
-            await program.methods
-                .takeLp(new anchor.BN(DEPOSIT_AMOUNT))
-                .accounts({ pool: setup.pool, mint, authority: authority.publicKey, userLpTokenAccount })
-                .signers([authority])
-                .rpc();
-
-            await program.methods
-                .putLp(new anchor.BN(DEPOSIT_AMOUNT))
-                .accounts({ pool: setup.pool, mint, authority: authority.publicKey, userLpTokenAccount })
-                .signers([authority])
-                .rpc();
+            await participateInPool(setup, PARTICIPATE_AMOUNT);
         });
 
-        it("returns underlying tokens to user on withdraw", async () => {
-            const { program, mint, pool, lendingVaultPda, userPositionPda, userTokenAccount, authority, connection } = setup;
+        it("burns only the specified LP amount, leaving the rest intact", async () => {
+            const { program, pool, authority, connection } = setup;
 
             await program.methods
-                .withdraw(new anchor.BN(DEPOSIT_AMOUNT))
-                .accounts({ pool, mint, authority: authority.publicKey, userTokenAccount })
-                .signers([authority])
-                .rpc();
-
-            const poolAccount = await program.account.pool.fetch(pool);
-            expect(poolAccount.totalDeposited.toString()).to.equal("0");
-
-            const position = await program.account.userPosition.fetch(userPositionPda);
-            expect(position.depositedAmount.toString()).to.equal("0");
-
-            const vault = await getAccount(connection, lendingVaultPda);
-            expect(vault.amount.toString()).to.equal("0");
-
-            const userToken = await getAccount(connection, userTokenAccount);
-            expect(userToken.amount.toString()).to.equal(INITIAL_BALANCE.toString());
-        });
-    });
-
-    // ── 3. init_if_needed: ATA is created when it doesn't exist ──────────────
-    describe("take_lp creates user_lp_token_account when it does not exist", () => {
-        const DEPOSIT_AMOUNT = 50_000_000;
-
-        let setup: TestSetup;
-        let userLpTokenAccount: PublicKey;
-
-        before(async () => {
-            setup = await setupTest();
-            userLpTokenAccount = anchor.utils.token.associatedAddress({
-                mint: setup.lpMintPda,
-                owner: setup.authority.publicKey,
-            });
-        });
-
-        it("user_lp_token_account does not exist before take_lp", async () => {
-            const { connection } = setup;
-            try {
-                await getAccount(connection, userLpTokenAccount);
-                throw new Error("Expected TokenAccountNotFoundError but account exists");
-            } catch (err) {
-                expect(err).to.be.instanceOf(TokenAccountNotFoundError);
-            }
-        });
-
-        it("take_lp creates the ATA and mints LP tokens into it", async () => {
-            const { program, mint, pool, userTokenAccount, authority, connection } = setup;
-
-            await program.methods
-                .deposit(new anchor.BN(DEPOSIT_AMOUNT))
-                .accounts({ pool, mint, authority: authority.publicKey, userTokenAccount })
-                .signers([authority])
-                .rpc();
-
-            // user_lp_token_account is intentionally NOT pre-created
-            await program.methods
-                .takeLp(new anchor.BN(DEPOSIT_AMOUNT))
-                .accounts({ pool, mint, authority: authority.publicKey, userLpTokenAccount })
+                .putLp(new BN(PUT_AMOUNT))
+                .accounts({ pool, authority: authority.publicKey, userLpTokenAccount })
                 .signers([authority])
                 .rpc();
 
             const lpAccount = await getAccount(connection, userLpTokenAccount);
-            expect(lpAccount.amount.toString()).to.equal(DEPOSIT_AMOUNT.toString());
+            expect(lpAccount.amount.toString()).to.equal(
+                (PARTICIPATE_AMOUNT - PUT_AMOUNT).toString()
+            );
+
+            const poolAccount = await program.account.pool.fetch(pool);
+            expect(poolAccount.totalLpIssued.toString()).to.equal(
+                (PARTICIPATE_AMOUNT - PUT_AMOUNT).toString()
+            );
         });
     });
 });

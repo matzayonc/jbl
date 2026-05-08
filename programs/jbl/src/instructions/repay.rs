@@ -9,28 +9,28 @@ pub struct Repay<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
-    /// The mint of the token being repaid
-    pub mint: Account<'info, Mint>,
+    /// The lend token mint (token being repaid).
+    pub lend_mint: Account<'info, Mint>,
 
     /// The borrower
     #[account(mut)]
     pub authority: Signer<'info>,
 
-    /// The borrower's token account (source of repayment)
+    /// The borrower's lend-token account (source of repayment)
     #[account(
         mut,
-        associated_token::mint = mint,
+        associated_token::mint = lend_mint,
         associated_token::authority = authority,
     )]
     pub user_token_account: Account<'info, TokenAccount>,
 
-    /// The lending vault (destination of repayment)
+    /// The pool's lend vault (destination of repayment)
     #[account(
         mut,
-        seeds = [b"pool", pool.key().as_ref()],
+        seeds = [b"lend_vault", pool.key().as_ref()],
         bump,
     )]
-    pub vault: Account<'info, TokenAccount>,
+    pub lend_vault: Account<'info, TokenAccount>,
 
     /// The user's position — borrow fields are reset on successful repay
     #[account(
@@ -78,13 +78,13 @@ pub fn repay_handler(ctx: Context<Repay>, amount: u64) -> Result<()> {
         (repay_amount, shares_to_burn)
     };
 
-    // ── 3. Transfer back to the vault ─────────────────────────────────────────
+    // ── 3. Transfer lend tokens back to the lend vault ─────────────────────────
     anchor_spl::token::transfer(
         CpiContext::new(
             *ctx.accounts.token_program.to_account_info().key,
             anchor_spl::token::Transfer {
                 from: ctx.accounts.user_token_account.to_account_info(),
-                to: ctx.accounts.vault.to_account_info(),
+                to: ctx.accounts.lend_vault.to_account_info(),
                 authority: ctx.accounts.authority.to_account_info(),
             },
         ),

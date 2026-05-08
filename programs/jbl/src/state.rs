@@ -1,40 +1,55 @@
 use crate::{math::compute_interest, withdrawal_queue::WithdrawalQueue, UtilizationFeeConfig};
 use anchor_lang::prelude::*;
 
-/// Pool account stored as zero-copy to avoid copying the ~40 KB withdrawal
-/// queue onto the stack during Borsh deserialization.
+/// Unified lending pool account stored as zero-copy.
 ///
-/// Field ordering is chosen to eliminate implicit repr(C) padding:
-///   offsets 0-95    : three Pubkeys  (3 × 32 = 96 bytes, align 1)
-///   offsets 96-167  : five u64/i64  (5 × 8 = 40) + fee_config (4×8 = 32)
-///   offsets 168-169 : ltv_percent, lp_mint_bump  (2 × u8)
-///   offsets 170-175 : _pad [u8;6]  (align withdrawal_queue to 8)
+/// Manages three token mints:
+///   - `collateral_mint`: tokens users deposit as collateral to enable borrowing
+///   - `lend_mint`:       tokens lenders deposit (earning LP) and borrowers receive
+///   - `lp_mint`:         issued 1:1 to lend-side depositors; redeemable for lend tokens
+///
+/// Field ordering eliminates implicit repr(C) padding:
+///   offsets 0-127   : four Pubkeys  (4 × 32 = 128 bytes, align 1)
+///   offsets 128-175 : six u64/i64  (6 × 8 = 48)
+///   offsets 176-207 : fee_config   (4 × u64 = 32)
+///   offsets 208-209 : ltv_percent, lp_mint_bump  (2 × u8)
+///   offsets 210-215 : _pad [u8; 6]  (align withdrawal_queue to 8)
+///   offsets 216-... : WithdrawalQueue  (1024 entries × 40 bytes = 40 960 + 8 header)
 #[account(zero_copy)]
 pub struct Pool {
     pub authority: Pubkey,
-    pub mint: Pubkey,
+    /// Mint of the token deposited as collateral (tracked raw, no LP issued).
+    pub collateral_mint: Pubkey,
+    /// Mint of the token lenders deposit and borrowers receive.
+    pub lend_mint: Pubkey,
+    /// LP token mint issued to lend-side depositors.
     pub lp_mint: Pubkey,
-    pub total_deposited: u64,
+    /// Raw sum of collateral tokens deposited across all positions.
+    pub total_collateral_deposited: u64,
+    /// Sum of lend tokens currently deposited (basis for LP ratio and utilisation).
+    pub total_lend_deposited: u64,
     pub total_borrowed: u64,
     pub total_debt_shares: u64,
     pub last_accrual_ts: i64,
+    /// Total LP tokens outstanding for the lend side.
     pub total_lp_issued: u64,
     pub fee_config: UtilizationFeeConfig,
     pub ltv_percent: u8,
     pub lp_mint_bump: u8,
     _pad: [u8; 6], // explicit padding — no implicit/uninitialised bytes
-                   // pub withdrawal_queue: WithdrawalQueue,
+    /// Queue of pending lend-token withdrawals (LP burned at `leave` time).
+    pub withdrawal_queue: WithdrawalQueue,
 }
 
 impl Pool {
     pub fn calculate_utilization(&self) -> u64 {
-        if self.total_deposited == 0 {
+        if self.total_lend_deposited == 0 {
             0
         } else {
             (self.total_borrowed as u128)
                 .checked_mul(10_000)
                 .unwrap_or(0)
-                .checked_div(self.total_deposited as u128)
+                .checked_div(self.total_lend_deposited as u128)
                 .unwrap_or(0) as u64
         }
     }
@@ -61,45 +76,18 @@ impl Pool {
     }
 }
 
-/// A two-asset vault stored as zero-copy to avoid copying the ~40 KB withdrawal
-/// queue onto the stack during Borsh deserialization.
-///
-/// The vault is a **keypair account** (not a PDA); it must be pre-allocated by
-/// the caller before invoking `create_vault`, exactly like `Pool`.
-///
-/// Field ordering eliminates implicit repr(C) padding:
-///   offsets 0-95    : three Pubkeys (authority, lent_mint, lp_mint) (3 × 32 = 96 bytes)
-///   offsets 96-103  : total_shares (u64)
-///   offsets 104-111 : _pad [u8; 8]  (align WithdrawalQueue to 8)
-///   offsets 112-... : WithdrawalQueue  (1024 entries × 40 bytes = 40 960 + 8 header)
-#[account(zero_copy)]
-pub struct Vault {
-    /// The pubkey that controls this vault.
-    pub authority: Pubkey,
-    /// First SPL token mint accepted by this vault.
-    pub lent_mint: Pubkey,
-    /// Second SPL token mint accepted by this vault.
-    pub lp_mint: Pubkey,
-    /// Total deposit shares outstanding (shares, not raw token amounts).
-    /// Individual user share → token conversion is computed at withdrawal time.
-    pub total_shares: u64,
-    _pad: [u8; 8], // explicit padding — no implicit/uninitialised bytes
-    pub withdrawal_queue: WithdrawalQueue,
-}
-
-/// Tracks a user's deposit and any open borrow position for a lending account.
-/// Created on first deposit; borrow fields are populated when the user borrows.
-/// Closed when the user calls `take_lp` to claim LP tokens.
+/// Tracks a user's collateral deposit and any open borrow position.
+/// Created on first collateral deposit; borrow fields populated when the user borrows.
 #[account]
 #[derive(InitSpace)]
 pub struct UserPosition {
     /// The user who owns this position
     pub authority: Pubkey,
-    /// The lending account this position belongs to
+    /// The pool this position belongs to
     pub pool: Pubkey,
-    /// Amount of underlying tokens deposited (used as collateral)
-    pub deposited_amount: u64,
-    /// LP tokens that will be minted when `take_lp` is called (pre-calculated at deposit time)
+    /// Raw amount of collateral tokens deposited (no shares — tracked 1:1).
+    pub collateral_deposited: u64,
+    /// LP tokens that will be minted when `take_lp` is called (legacy; 0 for collateral positions).
     pub lp_tokens_owed: u64,
     /// Debt shares held by this user (0 if no active borrow).
     /// Current debt = debt_shares * pool.total_borrowed / pool.total_debt_shares

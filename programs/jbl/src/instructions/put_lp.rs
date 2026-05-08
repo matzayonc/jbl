@@ -2,14 +2,14 @@ use crate::state::{Pool, UserPosition};
 use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount};
+// NOTE: put_lp is a legacy instruction. In the unified pool, LP tokens represent
+// lend-side deposits. Burning LP to credit collateral_deposited is semantically
+// incorrect and this instruction should be revised or removed.
 
 #[derive(Accounts)]
 pub struct PutLp<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
-
-    /// The mint of the underlying token
-    pub mint: Account<'info, Mint>,
 
     /// The LP token mint for this lending pool
     #[account(
@@ -31,7 +31,7 @@ pub struct PutLp<'info> {
     )]
     pub user_lp_token_account: Account<'info, TokenAccount>,
 
-    /// The user's position — credited with the underlying value of the LP tokens
+    /// The user's position — credited with the lend-side value of the LP tokens
     #[account(
         init_if_needed,
         payer = authority,
@@ -57,15 +57,15 @@ pub fn put_lp_handler(ctx: Context<PutLp>, amount: u64) -> Result<()> {
     let current_ts = Clock::get()?.unix_timestamp;
     ctx.accounts.pool.load_mut()?.accrue_interest(current_ts)?;
 
-    let (total_deposited, total_lp_issued) = {
+    let (total_lend_deposited, total_lp_issued) = {
         let pool = ctx.accounts.pool.load()?;
         require!(pool.total_lp_issued > 0, crate::error::ErrorCode::InvalidAmount);
-        (pool.total_deposited, pool.total_lp_issued)
+        (pool.total_lend_deposited, pool.total_lp_issued)
     };
 
-    // ── 2. Calculate underlying tokens this LP amount represents ─────────────
+    // ── 2. Calculate lend-side value this LP amount represents ────────────────
     let underlying = (amount as u128)
-        .checked_mul(total_deposited as u128)
+        .checked_mul(total_lend_deposited as u128)
         .ok_or(crate::error::ErrorCode::MathOverflow)?
         .checked_div(total_lp_issued as u128)
         .ok_or(crate::error::ErrorCode::MathOverflow)? as u64;
@@ -100,20 +100,20 @@ pub fn put_lp_handler(ctx: Context<PutLp>, amount: u64) -> Result<()> {
         **position = UserPosition {
             authority: ctx.accounts.authority.key(),
             pool: ctx.accounts.pool.key(),
-            deposited_amount: underlying,
+            collateral_deposited: underlying,
             lp_tokens_owed: 0,
             debt_shares: 0,
             bump: ctx.bumps.user_position,
         };
     } else {
-        position.deposited_amount = position
-            .deposited_amount
+        position.collateral_deposited = position
+            .collateral_deposited
             .checked_add(underlying)
             .ok_or(crate::error::ErrorCode::MathOverflow)?;
     }
 
     msg!(
-        "Put {} LP tokens. Credited {} underlying tokens to position. Pool total_lp_issued: {}",
+        "Put {} LP tokens. Credited {} lend-side value to position. Pool total_lp_issued: {}",
         amount,
         underlying,
         new_total_lp,

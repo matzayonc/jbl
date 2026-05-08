@@ -8,8 +8,8 @@ import {
 } from "@solana/spl-token";
 import { Jbl } from "../target/types/jbl";
 
-/** Size of the Pool account on-chain: 8-byte discriminant + Pool struct (41 144 bytes). */
-export const POOL_SPACE = 8 + 41144;
+/** Size of the Pool account on-chain: 8-byte discriminant + Pool struct (41 184 bytes). */
+export const POOL_SPACE = 8 + 41184;
 
 export interface FeeCurve {
   m1: BN;
@@ -31,18 +31,28 @@ export interface TestSetup {
   connection: Connection;
   authority: Keypair;
   payer: Keypair;
-  mint: PublicKey;
+  /** Mint for collateral tokens (deposited by borrowers). */
+  collateralMint: PublicKey;
+  /** Mint for lend tokens (deposited by lenders via participate; borrowed by borrowers). */
+  lendMint: PublicKey;
   pool: PublicKey;
   statePda: PublicKey;
-  lendingVaultPda: PublicKey;
+  collateralVaultPda: PublicKey;
+  lendVaultPda: PublicKey;
   lpMintPda: PublicKey;
   userPositionPda: PublicKey;
-  userTokenAccount: PublicKey;
+  /** Authority's collateral token account. */
+  userCollateralTokenAccount: PublicKey;
+  /** Authority's lend token account. */
+  userLendTokenAccount: PublicKey;
   feeCurve: FeeCurve;
 }
 
 /**
  * Sets up a complete test environment for the jbl program.
+ *
+ * Creates a unified pool with separate collateral and lend mints.
+ * `authority` receives 1000 tokens of each mint.
  *
  * @param feeCurve - The fee curve parameters (m1, c1, m2, c2) to use when creating the pool.
  * @returns A TestSetup object with all necessary accounts, PDAs, and program references.
@@ -58,40 +68,31 @@ export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE): Promise
   const payer = Keypair.generate();
 
   // Airdrop SOL to payer and authority
-  const airdropPayer = await connection.requestAirdrop(
-    payer.publicKey,
-    2 * LAMPORTS_PER_SOL
-  );
+  const airdropPayer = await connection.requestAirdrop(payer.publicKey, 2 * LAMPORTS_PER_SOL);
   await connection.confirmTransaction(airdropPayer);
 
-  const airdropAuthority = await connection.requestAirdrop(
-    authority.publicKey,
-    2 * LAMPORTS_PER_SOL
-  );
+  const airdropAuthority = await connection.requestAirdrop(authority.publicKey, 2 * LAMPORTS_PER_SOL);
   await connection.confirmTransaction(airdropAuthority);
 
-  // Create a test token mint (6 decimals like USDC)
-  const mint = await createMint(
-    connection,
-    payer,
-    authority.publicKey,
-    null,
-    6
-  );
+  // Create two test token mints (6 decimals each).
+  // collateralMint: deposited by borrowers as collateral.
+  // lendMint: deposited by lenders via participate; received by borrowers on borrow.
+  const collateralMint = await createMint(connection, payer, authority.publicKey, null, 6);
+  const lendMint = await createMint(connection, payer, authority.publicKey, null, 6);
 
   // Pool is a keypair account (too large for on-chain PDA allocation via CPI).
-  // Pre-create it in a top-level transaction so the runtime has no size restriction.
   const poolKeypair = Keypair.generate();
   const pool = poolKeypair.publicKey;
 
-  // Derive the singleton global state PDA (authority for all CPIs)
-  const [statePda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("state")],
+  const [statePda] = PublicKey.findProgramAddressSync([Buffer.from("state")], program.programId);
+
+  const [collateralVaultPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("collateral_vault"), pool.toBuffer()],
     program.programId
   );
 
-  const [lendingVaultPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("pool"), pool.toBuffer()],
+  const [lendVaultPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("lend_vault"), pool.toBuffer()],
     program.programId
   );
 
@@ -105,22 +106,16 @@ export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE): Promise
     program.programId
   );
 
-  // Create user token account and mint initial tokens (1000 tokens with 6 decimals)
-  const userTokenAccount = await createAssociatedTokenAccount(
-    connection,
-    payer,
-    mint,
-    authority.publicKey
+  // Create authority's collateral and lend token accounts, mint 1000 tokens each.
+  const userCollateralTokenAccount = await createAssociatedTokenAccount(
+    connection, payer, collateralMint, authority.publicKey
   );
+  await mintTo(connection, payer, collateralMint, userCollateralTokenAccount, authority, 1_000_000_000);
 
-  await mintTo(
-    connection,
-    payer,
-    mint,
-    userTokenAccount,
-    authority,
-    1_000_000_000 // 1000 tokens
+  const userLendTokenAccount = await createAssociatedTokenAccount(
+    connection, payer, lendMint, authority.publicKey
   );
+  await mintTo(connection, payer, lendMint, userLendTokenAccount, authority, 1_000_000_000);
 
   // Pre-create the pool account via SystemProgram.createAccount (top-level instruction,
   // no CPI size limit).  Pool keypair signs this instruction.
@@ -133,12 +128,13 @@ export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE): Promise
     programId: program.programId,
   });
 
-  // Create the lending pool — state PDA is used as authority for vault and LP mint.
+  // Create the lending pool.  Anchor auto-resolves collateralVault, lendVault, lpMint, state.
   await program.methods
     .create(feeCurve.m1, feeCurve.c1, feeCurve.m2, feeCurve.c2)
     .accounts({
       pool,
-      mint,
+      collateralMint,
+      lendMint,
       authority: authority.publicKey,
       payer: payer.publicKey,
     })
@@ -152,57 +148,68 @@ export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE): Promise
     connection,
     authority,
     payer,
-    mint,
+    collateralMint,
+    lendMint,
     pool,
     statePda,
-    lendingVaultPda,
+    collateralVaultPda,
+    lendVaultPda,
     lpMintPda,
     userPositionPda,
-    userTokenAccount,
+    userCollateralTokenAccount,
+    userLendTokenAccount,
     feeCurve,
   };
 }
 
 export interface Lender {
   authority: Keypair;
+  /** Collateral token account — used as source for deposit and destination for withdraw. */
   userTokenAccount: PublicKey;
+  /** Lend token account — used as source for participate and destination for borrow. */
+  userLendTokenAccount: PublicKey;
   userPositionPda: PublicKey;
 }
 
 /**
- * Creates a new lender (depositor) for an existing pool.
- * Airdrops SOL, creates a token account for the pool's mint, and mints 1000 tokens.
+ * Creates a new user (borrower or lender) for an existing pool.
+ * Airdrops SOL, creates token accounts for both mints, and mints 1000 tokens each.
  */
 export async function createLender(setup: TestSetup): Promise<Lender> {
-  const { connection, payer, mint, authority: mintAuthority, program, pool } = setup;
+  const { connection, payer, collateralMint, lendMint, authority: mintAuthority, program, pool } = setup;
 
   const authority = Keypair.generate();
 
   const airdrop = await connection.requestAirdrop(authority.publicKey, 2 * LAMPORTS_PER_SOL);
   await connection.confirmTransaction(airdrop);
 
-  const userTokenAccount = await createAssociatedTokenAccount(connection, payer, mint, authority.publicKey);
+  const userTokenAccount = await createAssociatedTokenAccount(connection, payer, collateralMint, authority.publicKey);
+  await mintTo(connection, payer, collateralMint, userTokenAccount, mintAuthority, 1_000_000_000);
 
-  await mintTo(connection, payer, mint, userTokenAccount, mintAuthority, 1_000_000_000);
+  const userLendTokenAccount = await createAssociatedTokenAccount(connection, payer, lendMint, authority.publicKey);
+  await mintTo(connection, payer, lendMint, userLendTokenAccount, mintAuthority, 1_000_000_000);
 
   const [userPositionPda] = PublicKey.findProgramAddressSync(
     [Buffer.from("user_position"), pool.toBuffer(), authority.publicKey.toBuffer()],
     program.programId
   );
 
-  return { authority, userTokenAccount, userPositionPda };
+  return { authority, userTokenAccount, userLendTokenAccount, userPositionPda };
 }
 
 /**
- * Creates the user's LP token account for a given setup.
- * Must be called after the pool has been created on-chain (LP mint is initialized by create()).
+ * Deposits lend tokens from setup.authority into the pool's lend vault via `participate`.
+ * Provides liquidity so borrowers can borrow.
  */
-export async function createUserLpTokenAccount(setup: TestSetup): Promise<PublicKey> {
-  const { connection, payer, lpMintPda, authority } = setup;
-  return createAssociatedTokenAccount(
-    connection,
-    payer,
-    lpMintPda,
-    authority.publicKey
-  );
+export async function participateInPool(setup: TestSetup, amount: number): Promise<void> {
+  await setup.program.methods
+    .participate(new BN(amount))
+    .accounts({
+      pool: setup.pool,
+      lendMint: setup.lendMint,
+      authority: setup.authority.publicKey,
+      userLendTokenAccount: setup.userLendTokenAccount,
+    })
+    .signers([setup.authority])
+    .rpc();
 }

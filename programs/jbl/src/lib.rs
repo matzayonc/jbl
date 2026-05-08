@@ -52,10 +52,6 @@ pub mod jbl {
         process_queue_entry_handler(ctx)
     }
 
-    pub fn create_vault(ctx: Context<CreateVault>) -> Result<()> {
-        create_vault_handler(ctx)
-    }
-
     pub fn participate(ctx: Context<Participate>, amount: u64) -> Result<()> {
         participate_handler(ctx, amount)
     }

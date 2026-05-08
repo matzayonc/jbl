@@ -9,39 +9,39 @@ pub struct Borrow<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
-    /// CHECK: Signer-only PDA — no data stored; signs vault-transfer CPIs.
+    /// CHECK: Signer-only PDA — no data stored; signs lend-vault-transfer CPIs.
     #[account(
         seeds = [b"state"],
         bump,
     )]
     pub state: UncheckedAccount<'info>,
 
-    /// The mint of the token being borrowed
-    pub mint: Account<'info, Mint>,
+    /// The lend token mint (token being borrowed).
+    pub lend_mint: Account<'info, Mint>,
 
     /// The borrower
     #[account(mut)]
     pub authority: Signer<'info>,
 
-    /// The user's token account (destination) — created if it doesn't exist yet
+    /// The user's lend-token account (destination) — created if it doesn't exist yet
     #[account(
         init_if_needed,
         payer = authority,
-        associated_token::mint = mint,
+        associated_token::mint = lend_mint,
         associated_token::authority = authority,
     )]
     pub user_token_account: Account<'info, TokenAccount>,
 
-    /// The lending account's token account (source)
+    /// The pool's lend vault (source of borrowed tokens)
     #[account(
         mut,
-        seeds = [b"pool", pool.key().as_ref()],
+        seeds = [b"lend_vault", pool.key().as_ref()],
         bump,
-        constraint = vault.mint == mint.key(),
+        constraint = lend_vault.mint == lend_mint.key(),
     )]
-    pub vault: Account<'info, TokenAccount>,
+    pub lend_vault: Account<'info, TokenAccount>,
 
-    /// The user's position — holds deposit collateral and active borrow fields.
+    /// The user's position — collateral balance and active borrow fields.
     #[account(
         mut,
         seeds = [b"user_position", pool.key().as_ref(), authority.key().as_ref()],
@@ -49,7 +49,7 @@ pub struct Borrow<'info> {
         has_one = authority,
         constraint = user_position.pool == pool.key()
             @ crate::error::ErrorCode::InvalidAmount,
-        constraint = user_position.deposited_amount > 0
+        constraint = user_position.collateral_deposited > 0
             @ crate::error::ErrorCode::InsufficientFunds,
     )]
     pub user_position: Account<'info, UserPosition>,
@@ -62,7 +62,7 @@ pub struct Borrow<'info> {
 pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
     require!(amount > 0, crate::error::ErrorCode::InvalidAmount);
     require!(
-        ctx.accounts.vault.amount >= amount,
+        ctx.accounts.lend_vault.amount >= amount,
         crate::error::ErrorCode::InsufficientFunds
     );
 
@@ -73,8 +73,8 @@ pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
     // ── 2. LTV check and share calculation ───────────────────────────────────
     let new_shares = {
         let pool = ctx.accounts.pool.load()?;
-        let deposited = ctx.accounts.user_position.deposited_amount;
-        let max_borrowable = deposited
+        let collateral = ctx.accounts.user_position.collateral_deposited;
+        let max_borrowable = collateral
             .checked_mul(pool.ltv_percent as u64)
             .ok_or(crate::error::ErrorCode::MathOverflow)?
             .checked_div(100)
@@ -111,7 +111,7 @@ pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
         .checked_add(new_shares)
         .ok_or(crate::error::ErrorCode::MathOverflow)?;
 
-    // ── 4. Transfer tokens to the user ────────────────────────────────────────
+    // ── 4. Transfer lend tokens to the borrower ───────────────────────────────
     let seeds = &[b"state" as &[u8], &[ctx.bumps.state]];
     let signer = &[&seeds[..]];
 
@@ -119,7 +119,7 @@ pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
         CpiContext::new_with_signer(
             *ctx.accounts.token_program.to_account_info().key,
             anchor_spl::token::Transfer {
-                from: ctx.accounts.vault.to_account_info(),
+                from: ctx.accounts.lend_vault.to_account_info(),
                 to: ctx.accounts.user_token_account.to_account_info(),
                 authority: ctx.accounts.state.to_account_info(),
             },
@@ -143,7 +143,7 @@ pub fn borrow_handler(ctx: Context<Borrow>, amount: u64) -> Result<()> {
     };
 
     msg!(
-        "Borrowed {} → {} shares. Pool total_borrowed: {}, total_shares: {}",
+        "Borrowed {} lend tokens → {} shares. Pool total_borrowed: {}, total_shares: {}",
         amount,
         new_shares,
         total_borrowed,

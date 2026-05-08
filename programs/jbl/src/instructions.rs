@@ -1,6 +1,5 @@
 pub mod borrow;
 pub mod create;
-pub mod create_vault;
 pub mod deposit;
 pub mod leave;
 pub mod participate;
@@ -13,7 +12,6 @@ pub mod withdraw;
 
 pub use borrow::*;
 pub use create::*;
-pub use create_vault::*;
 pub use deposit::*;
 pub use leave::*;
 pub use participate::*;

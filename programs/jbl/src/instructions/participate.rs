@@ -1,4 +1,4 @@
-use crate::state::Vault;
+use crate::state::Pool;
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
@@ -8,7 +8,7 @@ use anchor_spl::{
 #[derive(Accounts)]
 pub struct Participate<'info> {
     #[account(mut)]
-    pub vault: AccountLoader<'info, Vault>,
+    pub pool: AccountLoader<'info, Pool>,
 
     /// CHECK: Signer-only PDA — no data stored; signs LP-mint CPIs.
     #[account(
@@ -17,14 +17,13 @@ pub struct Participate<'info> {
     )]
     pub state: UncheckedAccount<'info>,
 
-    /// The lent token mint accepted by the vault.
-    pub lent_mint: Account<'info, Mint>,
+    /// The lend token mint accepted by this pool.
+    pub lend_mint: Account<'info, Mint>,
 
-    /// The vault's LP token mint. Created by `create_vault` as a PDA; `state` is
-    /// the mint authority so this instruction can mint LP shares via CPI.
+    /// The pool's LP token mint. `state` PDA is the mint authority.
     #[account(
         mut,
-        seeds = [b"lp_mint", vault.key().as_ref()],
+        seeds = [b"lp_mint", pool.key().as_ref()],
         bump,
     )]
     pub lp_mint: Account<'info, Mint>,
@@ -33,25 +32,25 @@ pub struct Participate<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
 
-    /// The user's source token account for lent tokens.
+    /// The user's lend-token source account.
     #[account(
         mut,
-        constraint = user_lent_token_account.owner == authority.key()
+        constraint = user_lend_token_account.owner == authority.key()
             @ crate::error::ErrorCode::InvalidAmount,
-        constraint = user_lent_token_account.mint == lent_mint.key()
+        constraint = user_lend_token_account.mint == lend_mint.key()
             @ crate::error::ErrorCode::InvalidAmount,
     )]
-    pub user_lent_token_account: Account<'info, TokenAccount>,
+    pub user_lend_token_account: Account<'info, TokenAccount>,
 
-    /// Vault token account A — holds the deposited lent tokens.
+    /// The pool's lend vault — holds deposited lend tokens.
     #[account(
         mut,
-        seeds = [b"vault_tokens_a", vault.key().as_ref()],
+        seeds = [b"lend_vault", pool.key().as_ref()],
         bump,
-        constraint = vault_token_account_a.mint == lent_mint.key()
+        constraint = lend_vault.mint == lend_mint.key()
             @ crate::error::ErrorCode::InvalidAmount,
     )]
-    pub vault_token_account_a: Account<'info, TokenAccount>,
+    pub lend_vault: Account<'info, TokenAccount>,
 
     /// The user's LP token account — created if it doesn't already exist.
     #[account(
@@ -70,41 +69,42 @@ pub struct Participate<'info> {
 pub fn participate_handler(ctx: Context<Participate>, amount: u64) -> Result<()> {
     require!(amount > 0, crate::error::ErrorCode::InvalidAmount);
 
-    // Validate lent_mint matches what is stored in the vault.
+    // Validate lend_mint matches what is stored in the pool.
     {
-        let vault = ctx.accounts.vault.load()?;
+        let pool = ctx.accounts.pool.load()?;
         require!(
-            ctx.accounts.lent_mint.key() == vault.lent_mint,
+            ctx.accounts.lend_mint.key() == pool.lend_mint,
             crate::error::ErrorCode::InvalidAmount
         );
     }
 
-    // ── 1. Calculate LP shares to mint (proportional to existing vault balance) ──
-    let shares_to_mint = {
-        let vault = ctx.accounts.vault.load()?;
-        let vault_balance = ctx.accounts.vault_token_account_a.amount;
+    // ── 1. Calculate LP tokens to mint (proportional to existing deposits) ────
+    // Uses total_lend_deposited as the denominator so LP value is consistent
+    // with the deposit accounting in the pool.
+    let lp_to_mint = {
+        let pool = ctx.accounts.pool.load()?;
 
-        if vault.total_shares == 0 || vault_balance == 0 {
-            // First deposit: 1 share per token.
+        if pool.total_lp_issued == 0 || pool.total_lend_deposited == 0 {
+            // First lend deposit: 1 LP per token.
             amount
         } else {
             (amount as u128)
-                .checked_mul(vault.total_shares as u128)
+                .checked_mul(pool.total_lp_issued as u128)
                 .ok_or(crate::error::ErrorCode::MathOverflow)?
-                .checked_div(vault_balance as u128)
+                .checked_div(pool.total_lend_deposited as u128)
                 .ok_or(crate::error::ErrorCode::MathOverflow)? as u64
         }
     };
 
-    require!(shares_to_mint > 0, crate::error::ErrorCode::InvalidAmount);
+    require!(lp_to_mint > 0, crate::error::ErrorCode::InvalidAmount);
 
-    // ── 2. Transfer lent tokens from user to vault token account A ───────────
+    // ── 2. Transfer lend tokens from user to the pool's lend vault ────────────
     anchor_spl::token::transfer(
         CpiContext::new(
             *ctx.accounts.token_program.to_account_info().key,
             anchor_spl::token::Transfer {
-                from: ctx.accounts.user_lent_token_account.to_account_info(),
-                to: ctx.accounts.vault_token_account_a.to_account_info(),
+                from: ctx.accounts.user_lend_token_account.to_account_info(),
+                to: ctx.accounts.lend_vault.to_account_info(),
                 authority: ctx.accounts.authority.to_account_info(),
             },
         ),
@@ -126,22 +126,27 @@ pub fn participate_handler(ctx: Context<Participate>, amount: u64) -> Result<()>
             },
             signer,
         ),
-        shares_to_mint,
+        lp_to_mint,
     )?;
 
-    // ── 4. Update vault total_shares ──────────────────────────────────────────
+    // ── 4. Update pool lend totals ────────────────────────────────────────────
     {
-        let mut vault = ctx.accounts.vault.load_mut()?;
-        vault.total_shares = vault
-            .total_shares
-            .checked_add(shares_to_mint)
+        let mut pool = ctx.accounts.pool.load_mut()?;
+        pool.total_lend_deposited = pool
+            .total_lend_deposited
+            .checked_add(amount)
+            .ok_or(crate::error::ErrorCode::MathOverflow)?;
+        pool.total_lp_issued = pool
+            .total_lp_issued
+            .checked_add(lp_to_mint)
             .ok_or(crate::error::ErrorCode::MathOverflow)?;
 
         msg!(
-            "Participate: deposited {} lent tokens, minted {} LP shares. Total shares: {}",
+            "Participate: deposited {} lend tokens, minted {} LP. total_lend_deposited: {}, total_lp_issued: {}",
             amount,
-            shares_to_mint,
-            vault.total_shares,
+            lp_to_mint,
+            pool.total_lend_deposited,
+            pool.total_lp_issued,
         );
     }
 

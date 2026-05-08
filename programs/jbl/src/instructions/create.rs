@@ -12,42 +12,56 @@ pub struct Create<'info> {
     #[account(zero)]
     pub pool: AccountLoader<'info, Pool>,
 
-    /// CHECK: Signer-only PDA — no data stored; used as authority for the vault and LP mint.
+    /// CHECK: Signer-only PDA — no data stored; used as authority for vault token accounts and LP mint.
     #[account(
         seeds = [b"state"],
         bump,
     )]
     pub state: UncheckedAccount<'info>,
 
-    /// The token vault for holding deposited tokens
+    /// Token vault for holding deposited collateral tokens.
     #[account(
         init,
         payer = payer,
-        token::mint = mint,
+        token::mint = collateral_mint,
         token::authority = state,
-        seeds = [b"pool", pool.key().as_ref()],
+        seeds = [b"collateral_vault", pool.key().as_ref()],
         bump
     )]
-    pub vault: Account<'info, TokenAccount>,
+    pub collateral_vault: Account<'info, TokenAccount>,
 
-    /// The LP token mint for this lending pool
+    /// Token vault for holding deposited lend tokens.
     #[account(
         init,
         payer = payer,
-        mint::decimals = mint.decimals,
+        token::mint = lend_mint,
+        token::authority = state,
+        seeds = [b"lend_vault", pool.key().as_ref()],
+        bump
+    )]
+    pub lend_vault: Account<'info, TokenAccount>,
+
+    /// The LP token mint for the lend side of this pool.
+    #[account(
+        init,
+        payer = payer,
+        mint::decimals = lend_mint.decimals,
         mint::authority = state,
         seeds = [b"lp_mint", pool.key().as_ref()],
         bump
     )]
     pub lp_mint: Account<'info, Mint>,
 
-    /// The mint of the token being deposited
-    pub mint: Account<'info, Mint>,
+    /// The collateral token mint.
+    pub collateral_mint: Account<'info, Mint>,
 
-    /// The authority that will control this lending account
+    /// The lend token mint (deposited by lenders; borrowed by borrowers).
+    pub lend_mint: Account<'info, Mint>,
+
+    /// The authority that will control this pool.
     pub authority: Signer<'info>,
 
-    /// The account that pays for the account creation
+    /// The account that pays for account creation.
     #[account(mut)]
     pub payer: Signer<'info>,
 
@@ -59,9 +73,11 @@ pub fn create_handler(ctx: Context<Create>, m1: u64, c1: u64, m2: u64, c2: u64) 
     let mut pool = ctx.accounts.pool.load_init()?;
 
     pool.authority = ctx.accounts.authority.key();
-    pool.mint = ctx.accounts.mint.key();
+    pool.collateral_mint = ctx.accounts.collateral_mint.key();
+    pool.lend_mint = ctx.accounts.lend_mint.key();
     pool.lp_mint = ctx.accounts.lp_mint.key();
-    pool.total_deposited = 0;
+    pool.total_collateral_deposited = 0;
+    pool.total_lend_deposited = 0;
     pool.total_borrowed = 0;
     pool.total_debt_shares = 0;
     pool.last_accrual_ts = Clock::get()?.unix_timestamp;
@@ -72,9 +88,10 @@ pub fn create_handler(ctx: Context<Create>, m1: u64, c1: u64, m2: u64, c2: u64) 
     // withdrawal_queue is zero-initialised by load_init (head=0, tail=0)
 
     msg!(
-        "Created lending pool for authority: {} with mint: {} and LP mint: {} at slot: {}",
+        "Created pool for authority: {} collateral_mint: {} lend_mint: {} lp_mint: {} at slot: {}",
         ctx.accounts.authority.key(),
-        ctx.accounts.mint.key(),
+        ctx.accounts.collateral_mint.key(),
+        ctx.accounts.lend_mint.key(),
         ctx.accounts.lp_mint.key(),
         Clock::get()?.slot
     );

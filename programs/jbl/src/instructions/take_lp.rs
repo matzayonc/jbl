@@ -4,6 +4,8 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     token::{Mint, MintTo, Token, TokenAccount},
 };
+// NOTE: take_lp is a legacy instruction. Collateral depositors no longer earn LP tokens.
+// In the unified pool, LP tokens are issued only to lend-side depositors via `participate`.
 
 #[derive(Accounts)]
 pub struct TakeLp<'info> {
@@ -16,9 +18,6 @@ pub struct TakeLp<'info> {
         bump,
     )]
     pub state: UncheckedAccount<'info>,
-
-    /// The mint of the underlying token (needed for pool seeds)
-    pub mint: Account<'info, Mint>,
 
     /// The LP token mint for this lending pool
     #[account(
