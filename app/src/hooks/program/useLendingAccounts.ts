@@ -1,12 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { program } from '../lib/program'
-import { queryKeys } from '../lib/queryKeys'
-import type { PoolData } from '../types/lending'
-import { _mapPool } from './program/useLendingAccount'
+import { program } from '../../lib/program'
+import { queryKeys } from '../../lib/queryKeys'
+import type { PoolData } from '../../types/lending'
+import { _mapPool } from './useLendingAccount'
 
 export type { PoolData }
-/** @deprecated Use PoolData instead */
-export type { PoolData as LendingAccountData }
 
 async function fetchAllPools(): Promise<PoolData[]> {
     const all = await program.account.pool.all()

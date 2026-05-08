@@ -1,14 +1,25 @@
-import { WalletButton } from './components/WalletButton'
-import { LendingInfoCard } from './components/lending/LendingInfoCard'
+import { RootLayout } from "@/layouts/RootLayout";
+import { MarketPage } from "@/pages/MarketPage";
+import { MultiplyDetailPage } from "@/pages/MultiplyDetailPage";
+import { MultiplyPage } from "@/pages/MultiplyPage";
+import { PoolDetailPage } from "@/pages/PoolDetailPage";
+import { PortfolioPage } from "@/pages/PortfolioPage";
+import { BrowserRouter, Route, Routes } from "react-router";
 
 function App() {
   return (
-    <main className="flex min-h-svh flex-col items-center justify-center gap-8 bg-white p-8 dark:bg-gray-950">
-      <h1 className="text-5xl font-semibold tracking-tight text-pink-500">JBL</h1>
-      <WalletButton />
-      <LendingInfoCard />
-    </main>
-  )
+    <BrowserRouter basename="/jbl">
+      <Routes>
+        <Route element={<RootLayout />}>
+          <Route index element={<MarketPage />} />
+          <Route path="/pool/:id" element={<PoolDetailPage />} />
+          <Route path="/multiply" element={<MultiplyPage />} />
+          <Route path="/multiply/:id" element={<MultiplyDetailPage />} />
+          <Route path="/portfolio" element={<PortfolioPage />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;

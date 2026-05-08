@@ -1,0 +1,89 @@
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import { PublicKey } from '@solana/web3.js'
+import { create } from 'zustand'
+import { connection } from '../lib/program'
+import type { TokenBalance, WalletBalances } from '../types/wallet'
+
+interface WalletBalancesState {
+    balances: WalletBalances | null
+    isLoading: boolean
+    error: Error | null
+    /** The wallet address the current balances belong to. */
+    address: string | null
+}
+
+interface WalletBalancesActions {
+    fetch: (address: string) => Promise<void>
+    clear: () => void
+}
+
+async function fetchWalletBalances(address: string): Promise<WalletBalances> {
+    const owner = new PublicKey(address)
+
+    const [lamports, splAccounts, spl2022Accounts] = await Promise.all([
+        connection.getBalance(owner, 'confirmed'),
+        connection.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID }, 'confirmed'),
+        connection.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_2022_PROGRAM_ID }, 'confirmed'),
+    ])
+
+    function parseAccounts(
+        accounts: Awaited<ReturnType<typeof connection.getParsedTokenAccountsByOwner>>,
+        program: TokenBalance['program'],
+    ): TokenBalance[] {
+        return accounts.value
+            .filter((a) => {
+                const info = a.account.data.parsed?.info
+                return info && BigInt(info.tokenAmount.amount) > 0n
+            })
+            .map((a) => {
+                const info = a.account.data.parsed.info
+                const tokenAmount = info.tokenAmount
+                return {
+                    mint: new PublicKey(info.mint as string),
+                    ata: a.pubkey,
+                    amount: BigInt(tokenAmount.amount as string),
+                    decimals: tokenAmount.decimals as number,
+                    uiAmount: (tokenAmount.uiAmount as number | null) ?? null,
+                    program,
+                }
+            })
+    }
+
+    return {
+        lamports: BigInt(lamports),
+        tokens: [
+            ...parseAccounts(splAccounts, 'spl'),
+            ...parseAccounts(spl2022Accounts, 'spl2022'),
+        ],
+    }
+}
+
+export const useWalletBalancesStore = create<WalletBalancesState & WalletBalancesActions>()(
+    (set, get) => ({
+        balances: null,
+        isLoading: false,
+        error: null,
+        address: null,
+
+        fetch: async (address: string) => {
+            // Skip if already loading for the same address
+            if (get().isLoading && get().address === address) return
+
+            set({ isLoading: true, error: null, address })
+            try {
+                const balances = await fetchWalletBalances(address)
+                console.log(`Fetched balances for ${address}:`, balances)
+                // Only apply if address hasn't changed during the fetch
+                if (get().address === address) {
+                    set({ balances, isLoading: false })
+                }
+            } catch (err) {
+                if (get().address === address) {
+                    set({ error: err instanceof Error ? err : new Error(String(err)), isLoading: false })
+                }
+            }
+        },
+
+        clear: () => set({ balances: null, isLoading: false, error: null, address: null }),
+    }),
+)

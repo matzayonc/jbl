@@ -2,10 +2,10 @@ import * as anchor from '@anchor-lang/core'
 import { useWalletConnection } from '@solana/react-hooks'
 import { Keypair, PublicKey, SystemProgram } from '@solana/web3.js'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { connection, program as readonlyProgram } from '../lib/program'
-import { queryKeys } from '../lib/queryKeys'
-import { signAndSendV1 } from '../lib/transactions'
-import { handleTransaction } from '../lib/txHandler'
+import { connection, program as readonlyProgram } from '../../lib/program'
+import { queryKeys } from '../../lib/queryKeys'
+import { signAndSendV1 } from '../../lib/transactions'
+import { handleTransaction } from '../../lib/txHandler'
 
 /** Space needed for a Pool account (8-byte discriminator + zero-copy struct). */
 const POOL_SPACE = 41_192
