@@ -37,7 +37,7 @@ export function useWithdraw() {
                     collateralMint,
                     authority,
                     userTokenAccount,
-                })
+                } as any)
                 .transaction()
 
             tx.feePayer = authority

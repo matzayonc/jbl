@@ -67,7 +67,7 @@ export function MultiplyPositionPanel({
 
   if (!connected || !pos) return null;
 
-  const isPnlPositive = pos.pnl >= 0;
+  // const isPnlPositive = pos.pnl >= 0;
 
   return (
     <>

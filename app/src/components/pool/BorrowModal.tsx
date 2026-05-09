@@ -4,9 +4,9 @@ import { useMintDecimals } from "@/hooks/useMintDecimals";
 import { cn } from "@/lib/utils";
 import type { PoolData } from "@/types/lending";
 import type { Pool } from "@/types/pool";
+import { BN } from "@anchor-lang/core";
 import { useWalletConnection } from "@solana/react-hooks";
 import { PublicKey } from "@solana/web3.js";
-import BN from "bn.js";
 import { Info, Loader2, Wallet, X } from "lucide-react";
 import { useMemo, useState } from "react";
 

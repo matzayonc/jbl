@@ -4,8 +4,8 @@ import { useTokenBalance } from "@/hooks/useWalletBalances";
 import { cn } from "@/lib/utils";
 import type { PoolData } from "@/types/lending";
 import type { Pool } from "@/types/pool";
+import { BN } from "@anchor-lang/core";
 import { useWalletConnection } from "@solana/react-hooks";
-import BN from "bn.js";
 import { Info, Layers, Loader2, Wallet, X } from "lucide-react";
 import { useState } from "react";
 

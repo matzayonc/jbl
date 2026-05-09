@@ -3,13 +3,12 @@ import { useRepay } from "@/hooks/program/useRepay";
 import { useUserPosition } from "@/hooks/program/useUserPosition";
 import { useWithdraw } from "@/hooks/program/useWithdraw";
 import { useMintDecimals } from "@/hooks/useMintDecimals";
-import { useTokenBalance } from "@/hooks/useWalletBalances";
 import { cn } from "@/lib/utils";
 import type { Pool } from "@/types/pool";
+import { BN } from "@anchor-lang/core";
 import { useWalletConnection } from "@solana/react-hooks";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
-import BN from "bn.js";
 import { useMemo, useState } from "react";
 import { HealthBadge } from "../common/Badge";
 import { PositionActionButton } from "../common/PositionActionButton";
@@ -254,7 +253,7 @@ export function PoolPositionPanel({
     poolData.collateralMint ?? null,
   );
   const { data: lendDecimals } = useMintDecimals(poolData.lendMint ?? null);
-  const lpWalletBalance = useTokenBalance(poolData.lpMint ?? null);
+  // const lpWalletBalance = useTokenBalance(poolData.lpMint ?? null);
 
   const withdrawMutation = useWithdraw();
   const repayMutation = useRepay();
@@ -278,8 +277,8 @@ export function PoolPositionPanel({
   const hasDeposit =
     userPosition != null && userPosition.collateralDeposited > 0n;
   const hasDebt = userPosition != null && userPosition.debtShares > 0n;
-  const hasLpOwed = userPosition != null && userPosition.lpTokensOwed > 0n;
-  const hasLpInWallet = (lpWalletBalance?.uiAmount ?? 0) > 0;
+  // const hasLpOwed = userPosition != null && userPosition.lpTokensOwed > 0n;
+  // const hasLpInWallet = (lpWalletBalance?.uiAmount ?? 0) > 0;
 
   const lendPos: WithdrawPosition | null = hasDeposit
     ? {
