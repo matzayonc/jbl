@@ -7,15 +7,29 @@ export interface UtilizationFeeConfig {
     c2: bigint
 }
 
-export interface LendingAccountData {
+export interface PoolData {
     publicKey: PublicKey
     authority: PublicKey
-    mint: PublicKey
+    collateralMint: PublicKey
+    lendMint: PublicKey
     lpMint: PublicKey
-    totalDeposited: bigint
+    totalCollateralDeposited: bigint
+    totalLendDeposited: bigint
     totalBorrowed: bigint
-    totalLpIssued: bigint
+    totalDebtShares: bigint
     lastAccrualTs: bigint
-    lpMintBump: number
+    totalLpIssued: bigint
     feeConfig: UtilizationFeeConfig
+    ltvPercent: number
+    lpMintBump: number
+}
+
+export interface UserPositionData {
+    publicKey: PublicKey
+    authority: PublicKey
+    pool: PublicKey
+    collateralDeposited: bigint
+    lpTokensOwed: bigint
+    debtShares: bigint
+    bump: number
 }
