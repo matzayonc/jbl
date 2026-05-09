@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { AlertTriangle, Info, X } from "lucide-react";
+import { AlertTriangle, Info, Loader2, X } from "lucide-react";
 import { useState } from "react";
 
 export interface WithdrawPosition {
@@ -13,14 +13,15 @@ export interface WithdrawPosition {
 interface WithdrawModalProps {
   position: WithdrawPosition;
   onClose: () => void;
-  /** future: pass onWithdraw(amount: number) => Promise<void> */
   onWithdraw?: (amount: number) => Promise<void>;
+  isPending?: boolean;
 }
 
 export function WithdrawModal({
   position,
   onClose,
   onWithdraw,
+  isPending,
 }: WithdrawModalProps) {
   const [amount, setAmount] = useState("");
 
@@ -181,15 +182,21 @@ export function WithdrawModal({
           </div>
 
           <button
-            disabled={!numAmount || numAmount <= 0 || numAmount > maxWithdraw}
+            disabled={
+              !numAmount ||
+              numAmount <= 0 ||
+              numAmount > maxWithdraw ||
+              isPending
+            }
             onClick={handleSubmit}
             className={cn(
-              "w-full rounded-xl py-3 text-sm font-semibold transition-all duration-200 active:scale-[0.98] cursor-pointer",
-              numAmount > 0 && numAmount <= maxWithdraw
+              "w-full rounded-xl py-3 text-sm font-semibold transition-all duration-200 active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2",
+              numAmount > 0 && numAmount <= maxWithdraw && !isPending
                 ? "bg-[#c698e5] text-[#17081f] hover:bg-[#d4aeee]"
                 : "bg-[#c698e5]/12 text-[#efe0f7]/20 cursor-not-allowed",
             )}
           >
+            {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             Withdraw {position.asset}
           </button>
         </div>
