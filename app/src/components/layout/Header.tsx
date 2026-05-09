@@ -5,6 +5,7 @@ const NAV_LINKS = [
   { to: "/", end: true, label: "Market" },
   { to: "/multiply", end: false, label: "Multiply" },
   { to: "/portfolio", end: false, label: "Portfolio" },
+  { to: "/pool/create", end: false, label: "Create Pool" },
 ] as const;
 
 export function Header() {

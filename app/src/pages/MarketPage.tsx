@@ -4,17 +4,25 @@ import {
   type SortDir,
   type SortKey,
 } from "@/components/market/MarketTable";
-import { usePools } from "@/hooks/usePools";
-import type { Category } from "@/types/pool";
+import { useLendingAccounts } from "@/hooks/program/useLendingAccounts";
+import { poolDataToDisplayPool } from "@/lib/poolDisplay";
+import type { Category, Pool } from "@/types/pool";
 import { BarChart3 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 export function MarketPage() {
-  const { data: allPools = [], isLoading } = usePools();
+  const { data: lendingAccounts = [], isLoading } = useLendingAccounts();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<"all" | Category>("all");
   const [sortKey, setSortKey] = useState<SortKey>("totalSupplied");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  console.log("Lending accounts:", lendingAccounts);
+
+  const allPools = useMemo<Pool[]>(
+    () => lendingAccounts.map(poolDataToDisplayPool),
+    [lendingAccounts],
+  );
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -32,16 +40,13 @@ export function MarketPage() {
           const q = search.toLowerCase();
           const matchesSearch =
             p.name.toLowerCase().includes(q) ||
-            p.symbol.toLowerCase().includes(q);
-          const matchesCategory =
-            categoryFilter === "all" || p.category === categoryFilter;
-          return matchesSearch && matchesCategory;
+            p.symbol.toLowerCase().includes(q) ||
+            p.id.toLowerCase().includes(q);
+          return matchesSearch;
         })
         .sort((a, b) => {
           const mult = sortDir === "asc" ? 1 : -1;
-          const aVal = a[sortKey as keyof typeof a] as number;
-          const bVal = b[sortKey as keyof typeof b] as number;
-          return mult * (aVal - bVal);
+          return mult * ((a[sortKey] as number) - (b[sortKey] as number));
         }),
     [allPools, search, categoryFilter, sortKey, sortDir],
   );

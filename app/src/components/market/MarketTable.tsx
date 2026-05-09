@@ -1,4 +1,4 @@
-import { formatUSD } from "@/lib/formatters";
+import { formatRawTokens } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { Pool } from "@/types/pool";
 import {
@@ -127,29 +127,29 @@ export function MarketTable({
 
             {/* Supply APY */}
             <div className="text-right">
-              <p className="text-sm font-semibold text-[#34d399] tabular-nums">
+              <p className="text-sm mr-2 font-semibold text-[#34d399] tabular-nums">
                 {pool.supplyAPY.toFixed(2)}%
               </p>
             </div>
 
             {/* Borrow APY */}
             <div className="text-right">
-              <p className="text-sm font-semibold text-[#d45677] tabular-nums">
+              <p className="text-sm mr-2 font-semibold text-[#d45677] tabular-nums">
                 {pool.borrowAPY.toFixed(2)}%
               </p>
             </div>
 
             {/* Total Supplied */}
             <div className="text-right">
-              <p className="text-sm tabular-nums text-[#efe0f7]/75">
-                {formatUSD(pool.totalSupplied)}
+              <p className="text-sm mr-2  tabular-nums text-[#efe0f7]/75">
+                {formatRawTokens(pool.totalSupplied)}
               </p>
             </div>
 
             {/* Total Borrowed */}
             <div className="text-right">
-              <p className="text-sm tabular-nums text-[#efe0f7]/75">
-                {formatUSD(pool.totalBorrowed)}
+              <p className="text-sm mr-2 tabular-nums text-[#efe0f7]/75">
+                {formatRawTokens(pool.totalBorrowed)}
               </p>
             </div>
 

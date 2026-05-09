@@ -1,8 +1,13 @@
 import { ActionButton } from "@/components/common/ActionButton";
-import { formatUSD } from "@/lib/formatters";
+import { formatRawTokens } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { Category, Pool } from "@/types/pool";
-import { ExternalLink, TrendingDown, TrendingUp } from "lucide-react";
+import {
+  ExternalLink,
+  Layers,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 
 const CATEGORY_BADGE: Record<Category, { label: string; classes: string }> = {
   stablecoin: {
@@ -24,6 +29,7 @@ interface PoolHeroProps {
   isWalletConnected: boolean;
   onDeposit: () => void;
   onBorrow: () => void;
+  onLend: () => void;
 }
 
 export function PoolHero({
@@ -31,6 +37,7 @@ export function PoolHero({
   isWalletConnected,
   onDeposit,
   onBorrow,
+  onLend,
 }: PoolHeroProps) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-8">
@@ -65,7 +72,7 @@ export function PoolHero({
               {CATEGORY_BADGE[pool.category].label}
             </span>
             <a
-              href={`https://solscan.io/token/${pool.address}`}
+              href={`https://solscan.io/account/${pool.address}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-[11px] text-[#efe0f7]/25 hover:text-[#c698e5] transition-colors"
@@ -77,7 +84,7 @@ export function PoolHero({
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <ActionButton
           label="Deposit"
           variant="primary"
@@ -91,6 +98,13 @@ export function PoolHero({
           disabled={!isWalletConnected}
           onClick={onBorrow}
           icon={<TrendingDown className="h-4 w-4 text-[#c698e5]" />}
+        />
+        <ActionButton
+          label="Lend"
+          variant="secondary"
+          disabled={!isWalletConnected}
+          onClick={onLend}
+          icon={<Layers className="h-4 w-4 text-[#c698e5]" />}
         />
       </div>
     </div>
@@ -133,15 +147,15 @@ export function PoolStatsBar({ pool }: PoolStatsBarProps) {
       <div className="flex w-full overflow-x-auto divide-x divide-[#c698e5]/10">
         <StatItem
           label="Total Supplied"
-          value={formatUSD(pool.totalSupplied)}
+          value={formatRawTokens(pool.totalSupplied)}
         />
         <StatItem
           label="Total Borrowed"
-          value={formatUSD(pool.totalBorrowed)}
+          value={formatRawTokens(pool.totalBorrowed)}
         />
         <StatItem
           label="Available Liquidity"
-          value={formatUSD(pool.availableLiquidity)}
+          value={formatRawTokens(pool.availableLiquidity)}
         />
         <StatItem
           label="Utilization"
@@ -157,6 +171,7 @@ export function PoolStatsBar({ pool }: PoolStatsBarProps) {
           value={`${pool.borrowAPY.toFixed(2)}%`}
           last
         />
+        <StatItem label="Max LTV" value={`${pool.ltv}%`} />
       </div>
     </div>
   );
