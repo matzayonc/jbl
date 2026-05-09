@@ -1,12 +1,12 @@
-import { Buffer } from "buffer";
 import { AnchorProvider, Program } from "@anchor-lang/core";
 import { Connection } from "@solana/web3.js";
+import { Buffer } from "buffer";
+import IDL from "../../../target/idl/jbl.json";
+import type { Jbl } from "../../../target/types/jbl";
 
 if (typeof window !== "undefined" && !window.Buffer) {
   window.Buffer = Buffer;
 }
-import type { Jbl } from "../../../target/types/jbl";
-import IDL from "../../../target/idl/jbl.json";
 
 const endpoint =
   import.meta.env.VITE_SOLANA_RPC_URL ?? "https://api.devnet.solana.com";

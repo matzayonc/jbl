@@ -4,6 +4,17 @@ export function formatUSD(value: number): string {
   return `$${value.toLocaleString()}`;
 }
 
+/**
+ * Format a raw on-chain token amount (no USD conversion, no decimals applied).
+ * Suitable for displaying counts when no price oracle is available.
+ */
+export function formatRawTokens(value: number): string {
+  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)}B`;
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(2)}K`;
+  return value.toLocaleString("en-US", { maximumFractionDigits: 4 });
+}
+
 export function formatLargeUSD(v: number): string {
   if (v >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(1)}B`;
   if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(0)}M`;

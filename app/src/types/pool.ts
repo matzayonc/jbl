@@ -6,11 +6,19 @@ export interface Pool {
   name: string;
   symbol: string;
   icon: string;
+  /** Collateral token (deposited as security) */
+  collateralSymbol: string;
+  collateralIcon: string;
+  /** Lend token (borrowed / supplied as LP) */
+  lendSymbol: string;
+  lendIcon: string;
   supplyAPY: number;
   borrowAPY: number;
   totalSupplied: number;
   totalBorrowed: number;
+  totalCollateral: number;
   utilization: number;
+  ltv: number;
   category: Category;
   availableLiquidity: number;
 }
