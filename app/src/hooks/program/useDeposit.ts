@@ -39,7 +39,7 @@ export function useDeposit() {
             })
 
             const tx = await program.methods
-                .deposit(amount)
+                .depositCollateral(amount)
                 .accounts({
                     pool,
                     collateralMint,
