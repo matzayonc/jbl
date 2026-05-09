@@ -1,29 +1,62 @@
+import { useDeposit } from "@/hooks/program/useDeposit";
+import { useMintDecimals } from "@/hooks/useMintDecimals";
+import { useTokenBalance } from "@/hooks/useWalletBalances";
 import { cn } from "@/lib/utils";
+import type { PoolData } from "@/types/lending";
 import type { Pool } from "@/types/pool";
-import { AlertTriangle, Info, Wallet, X } from "lucide-react";
+import { useWalletConnection } from "@solana/react-hooks";
+import { getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
+import { Info, Loader2, Wallet, X } from "lucide-react";
 import { useState } from "react";
 
-export type ModalMode = "deposit" | "borrow";
-
-interface PoolActionModalProps {
-  mode: ModalMode;
+interface DepositModalProps {
   pool: Pool;
+  poolData: PoolData;
   onClose: () => void;
 }
 
-const MOCK_WALLET_BALANCE = 1_240.5;
-const MOCK_MAX_BORROW = 892.3;
-const MOCK_HEALTH_FACTOR = 2.14;
-
-export function PoolActionModal({ mode, pool, onClose }: PoolActionModalProps) {
+export function DepositModal({ pool, poolData, onClose }: DepositModalProps) {
   const [amount, setAmount] = useState("");
+  const { wallet } = useWalletConnection();
 
-  const isDeposit = mode === "deposit";
-  const limit = isDeposit ? MOCK_WALLET_BALANCE : MOCK_MAX_BORROW;
+  const collateralBalance = useTokenBalance(poolData.collateralMint);
+  const { data: collateralDecimals } = useMintDecimals(poolData.collateralMint);
+
+  const depositMutation = useDeposit();
+  const isPending = depositMutation.isPending;
+
+  const limit = collateralBalance?.uiAmount ?? 0;
 
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose();
   }
+
+  async function handleSubmit() {
+    const numAmount = parseFloat(amount);
+    if (!numAmount || numAmount <= 0 || !wallet) return;
+
+    const authority = new PublicKey(wallet.account.publicKey);
+    const decimals = collateralDecimals ?? 9;
+    const rawAmount = new BN(Math.floor(numAmount * 10 ** decimals));
+    const userTokenAccount = getAssociatedTokenAddressSync(
+      poolData.collateralMint,
+      authority,
+    );
+
+    await depositMutation.mutateAsync({
+      pool: poolData.publicKey,
+      collateralMint: poolData.collateralMint,
+      userTokenAccount,
+      amount: rawAmount,
+    });
+
+    onClose();
+  }
+
+  const canSubmit =
+    !!amount && parseFloat(amount) > 0 && !isPending && !!wallet;
 
   return (
     <div
@@ -34,10 +67,9 @@ export function PoolActionModal({ mode, pool, onClose }: PoolActionModalProps) {
         className="w-full max-w-sm rounded-2xl border border-[#c698e5]/15 bg-[#1a0d24] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-4">
-          <p className="text-base font-semibold text-[#efe0f7]">
-            {isDeposit ? "Deposit" : "Borrow"}
-          </p>
+          <p className="text-base font-semibold text-[#efe0f7]">Deposit</p>
           <button
             onClick={onClose}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-[#efe0f7]/30 hover:bg-[#c698e5]/10 hover:text-[#efe0f7] transition-colors cursor-pointer"
@@ -47,33 +79,32 @@ export function PoolActionModal({ mode, pool, onClose }: PoolActionModalProps) {
         </div>
 
         <div className="px-5 pb-5 flex flex-col gap-4">
+          {/* Amount input */}
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between gap-2 px-2">
               <span className="text-[11px] text-[#efe0f7]/40 flex-shrink-0">
                 Amount
               </span>
               <button
-                onClick={() => setAmount(limit.toFixed(2))}
+                onClick={() => setAmount(limit.toFixed(6))}
                 className="flex items-center gap-1 text-[11px] text-[#efe0f7]/35 hover:text-[#c698e5] transition-colors cursor-pointer min-w-0"
               >
                 <Wallet className="h-3 w-3 flex-shrink-0" />
-                <span className="flex-shrink-0">
-                  {isDeposit ? "Balance" : "Max"}:
-                </span>
+                <span className="flex-shrink-0">Balance:</span>
                 <span className="tabular-nums text-[#efe0f7]/55 truncate">
                   {limit.toLocaleString("en-US", {
                     minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
+                    maximumFractionDigits: 6,
                   })}{" "}
-                  {pool.symbol}
+                  {pool.collateralSymbol}
                 </span>
               </button>
             </div>
 
             <div className="flex items-center gap-2.5 rounded-xl border border-[#c698e5]/15 bg-[#c698e5]/5 px-3.5 py-3 transition-colors focus-within:border-[#c698e5]/40">
               <img
-                src={pool.icon}
-                alt={pool.symbol}
+                src={pool.collateralIcon}
+                alt={pool.collateralSymbol}
                 width={20}
                 height={20}
                 className="h-5 w-5 rounded-full flex-shrink-0"
@@ -87,16 +118,17 @@ export function PoolActionModal({ mode, pool, onClose }: PoolActionModalProps) {
                 className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-[#efe0f7] placeholder-[#efe0f7]/20 outline-none tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               <span className="text-[11px] font-semibold text-[#efe0f7]/40 flex-shrink-0">
-                {pool.symbol}
+                {pool.collateralSymbol}
               </span>
             </div>
           </div>
 
+          {/* Percentage shortcuts */}
           <div className="flex gap-1.5">
             {[25, 50, 75, 100].map((p) => (
               <button
                 key={p}
-                onClick={() => setAmount(((limit * p) / 100).toFixed(2))}
+                onClick={() => setAmount(((limit * p) / 100).toFixed(6))}
                 className="flex-1 rounded-lg border border-[#c698e5]/15 py-1.5 text-[11px] font-medium text-[#efe0f7]/35 hover:border-[#c698e5]/35 hover:text-[#c698e5] transition-all cursor-pointer"
               >
                 {p}%
@@ -104,63 +136,50 @@ export function PoolActionModal({ mode, pool, onClose }: PoolActionModalProps) {
             ))}
           </div>
 
+          {/* Info rows */}
           <div className="rounded-xl border border-[#c698e5]/10 divide-y divide-[#c698e5]/8">
             <div className="flex items-center justify-between px-3.5 py-2.5">
               <span className="flex items-center gap-1.5 text-xs text-[#efe0f7]/40">
                 <Info className="h-3 w-3" />
-                {isDeposit ? "Supply APY" : "Borrow APY"}
+                Supply APY
               </span>
               <span className="text-xs font-semibold text-emerald-400">
-                {isDeposit
-                  ? `${pool.supplyAPY.toFixed(2)}%`
-                  : `${pool.borrowAPY.toFixed(2)}%`}
+                {pool.supplyAPY.toFixed(2)}%
               </span>
             </div>
-            {!isDeposit && (
-              <div className="flex items-center justify-between px-3.5 py-2.5">
-                <span className="flex items-center gap-1.5 text-xs text-[#efe0f7]/40">
-                  <AlertTriangle className="h-3 w-3" />
-                  Health factor
-                </span>
-                <span
-                  className={cn(
-                    "text-xs font-semibold",
-                    MOCK_HEALTH_FACTOR > 2
-                      ? "text-emerald-400"
-                      : MOCK_HEALTH_FACTOR > 1.2
-                      ? "text-[#f0a854]"
-                      : "text-[#d45677]",
-                  )}
-                >
-                  {MOCK_HEALTH_FACTOR.toFixed(2)}
-                </span>
-              </div>
-            )}
-            {isDeposit && (
-              <div className="flex items-center justify-between px-3.5 py-2.5">
-                <span className="flex items-center gap-1.5 text-xs text-[#efe0f7]/40">
-                  <Info className="h-3 w-3" />
-                  Collateral enabled
-                </span>
-                <span className="text-xs font-semibold text-[#efe0f7]/60">
-                  Yes
-                </span>
-              </div>
-            )}
+            <div className="flex items-center justify-between px-3.5 py-2.5">
+              <span className="flex items-center gap-1.5 text-xs text-[#efe0f7]/40">
+                <Info className="h-3 w-3" />
+                LTV
+              </span>
+              <span className="text-xs font-semibold text-[#efe0f7]/60">
+                {poolData.ltvPercent}%
+              </span>
+            </div>
+            <div className="flex items-center justify-between px-3.5 py-2.5">
+              <span className="flex items-center gap-1.5 text-xs text-[#efe0f7]/40">
+                <Info className="h-3 w-3" />
+                Collateral
+              </span>
+              <span className="text-xs font-semibold text-[#34d399]">
+                Enabled
+              </span>
+            </div>
           </div>
 
+          {/* Submit */}
           <button
-            disabled={!amount || parseFloat(amount) <= 0}
+            disabled={!canSubmit}
+            onClick={handleSubmit}
             className={cn(
-              "w-full rounded-xl py-3 text-sm font-semibold transition-all duration-200 active:scale-[0.98] cursor-pointer",
-              amount && parseFloat(amount) > 0
-                ? isDeposit
-                  ? "bg-[#c698e5] text-[#17081f] hover:bg-[#d4aeee]"
-                  : "bg-[#d45677] text-white hover:bg-[#e0647f]"
+              "w-full rounded-xl py-3 text-sm font-semibold transition-all duration-200 active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2",
+              canSubmit
+                ? "bg-[#c698e5] text-[#17081f] hover:bg-[#d4aeee]"
                 : "bg-[#c698e5]/12 text-[#efe0f7]/20 cursor-not-allowed",
             )}
           >
-            {isDeposit ? "Deposit" : "Borrow"} {pool.symbol}
+            {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            Deposit {pool.collateralSymbol}
           </button>
         </div>
       </div>
