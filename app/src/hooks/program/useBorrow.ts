@@ -2,9 +2,9 @@ import * as anchor from '@anchor-lang/core'
 import { useWalletConnection } from '@solana/react-hooks'
 import { PublicKey } from '@solana/web3.js'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { program as readonlyProgram } from '../../lib/program'
 import { queryKeys } from '../../lib/queryKeys'
 import { handleTransaction } from '../../lib/txHandler'
+import { useAnchorProgram } from '../useAnchorProgram'
 
 export interface BorrowParams {
     pool: PublicKey
@@ -19,15 +19,16 @@ export interface BorrowParams {
  */
 export function useBorrow() {
     const { connected, wallet } = useWalletConnection()
+    const program = useAnchorProgram()
     const queryClient = useQueryClient()
 
     return useMutation({
         mutationFn: async ({ pool, lendMint, amount }: BorrowParams) => {
-            if (!connected || !wallet) throw new Error('Wallet not connected')
+            if (!connected || !wallet || !program) throw new Error('Wallet not connected')
 
             const authority = new PublicKey(wallet.account.publicKey)
 
-            const tx = await readonlyProgram.methods
+            const tx = await program.methods
                 .borrow(amount)
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 .accounts({ pool, lendMint, authority } as any)
