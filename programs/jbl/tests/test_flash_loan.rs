@@ -449,8 +449,8 @@ fn test_flash_loan_leveraged_swap() {
     let (user_position_pda, _) = find_user_position_pda(&s.pool_pubkey, &payer_pk, &program_id);
     let deposit_initial_ix = Instruction::new_with_bytes(
         program_id,
-        &jbl::instruction::Deposit { amount: INITIAL_COLLATERAL }.data(),
-        jbl::accounts::Deposit {
+        &jbl::instruction::DepositCollateral { amount: INITIAL_COLLATERAL }.data(),
+        jbl::accounts::DepositCollateral {
             pool: s.pool_pubkey,
             collateral_mint: s.collateral_mint,
             authority: payer_pk,
@@ -497,8 +497,8 @@ fn test_flash_loan_leveraged_swap() {
 
     let deposit_leveraged_ix = Instruction::new_with_bytes(
         program_id,
-        &jbl::instruction::Deposit { amount: BORROW }.data(),
-        jbl::accounts::Deposit {
+        &jbl::instruction::DepositCollateral { amount: BORROW }.data(),
+        jbl::accounts::DepositCollateral {
             pool: s.pool_pubkey,
             collateral_mint: s.collateral_mint,
             authority: payer_pk,

@@ -5,7 +5,7 @@ import { setupTest, createLender, TestSetup } from "./utils";
 
 async function depositCollateral(setup: TestSetup, authority: anchor.web3.Keypair, userTokenAccount: anchor.web3.PublicKey, amount: number) {
     await setup.program.methods
-        .deposit(new anchor.BN(amount))
+        .depositCollateral(new anchor.BN(amount))
         .accounts({
             pool: setup.pool,
             collateralMint: setup.collateralMint,
@@ -18,7 +18,7 @@ async function depositCollateral(setup: TestSetup, authority: anchor.web3.Keypai
 
 async function withdrawCollateral(setup: TestSetup, authority: anchor.web3.Keypair, userTokenAccount: anchor.web3.PublicKey, amount: number) {
     await setup.program.methods
-        .withdraw(new anchor.BN(amount))
+        .withdrawCollateral(new anchor.BN(amount))
         .accounts({
             pool: setup.pool,
             collateralMint: setup.collateralMint,
@@ -62,7 +62,6 @@ describe("deposit and withdraw", () => {
             expect(position.authority.toString()).to.equal(authority.publicKey.toString());
             expect(position.pool.toString()).to.equal(pool.toString());
             expect(position.collateralDeposited.toString()).to.equal(DEPOSIT_AMOUNT.toString());
-            expect(position.lpTokensOwed.toString()).to.equal("0");
             expect(position.debtShares.toString()).to.equal("0");
 
             const vault = await getAccount(connection, collateralVaultPda);

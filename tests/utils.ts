@@ -203,7 +203,7 @@ export async function createLender(setup: TestSetup): Promise<Lender> {
  */
 export async function participateInPool(setup: TestSetup, amount: number): Promise<void> {
   await setup.program.methods
-    .participate(new BN(amount))
+    .depositLent(new BN(amount))
     .accounts({
       pool: setup.pool,
       lendMint: setup.lendMint,

@@ -15,7 +15,6 @@ function mapUserPosition(
         authority: data.authority,
         pool: data.pool,
         collateralDeposited: BigInt(data.collateralDeposited.toString()),
-        lpTokensOwed: BigInt(data.lpTokensOwed.toString()),
         debtShares: BigInt(data.debtShares.toString()),
         bump: data.bump,
     }

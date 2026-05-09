@@ -71,7 +71,7 @@ describe("participate and leave", () => {
             const lendBalanceBefore = Number(lendBefore.amount);
 
             await program.methods
-                .leave(new BN(PARTICIPATE_AMOUNT))
+                .withdrawLent(new BN(PARTICIPATE_AMOUNT))
                 .accounts({
                     pool,
                     lendMint,
@@ -111,21 +111,12 @@ describe("participate and leave", () => {
         });
 
         it("mints 2x LP for 2x deposit on second participate", async () => {
-            const { program, pool, lendMint, authority } = setup;
+            const { pool, authority } = setup;
 
             // Authority has already participated FIRST_AMOUNT; now participates again.
-            await program.methods
-                .participate(new BN(SECOND_AMOUNT))
-                .accounts({
-                    pool,
-                    lendMint,
-                    authority: authority.publicKey,
-                    userLendTokenAccount: setup.userLendTokenAccount,
-                })
-                .signers([authority])
-                .rpc();
+            await participateInPool(setup, SECOND_AMOUNT);
 
-            const poolAccount = await program.account.pool.fetch(pool);
+            const poolAccount = await setup.program.account.pool.fetch(pool);
             // totalLpIssued = FIRST_AMOUNT + SECOND_AMOUNT (1:1 and 2:1 ratio gives 1M + 2M = 3M)
             expect(poolAccount.totalLpIssued.toString()).to.equal((FIRST_AMOUNT + SECOND_AMOUNT).toString());
             expect(poolAccount.totalLendDeposited.toString()).to.equal((FIRST_AMOUNT + SECOND_AMOUNT).toString());
@@ -147,7 +138,7 @@ describe("participate and leave", () => {
 
             try {
                 await program.methods
-                    .leave(new BN(0))
+                    .withdrawLent(new BN(0))
                     .accounts({ pool, lendMint, authority: authority.publicKey })
                     .signers([authority])
                     .rpc();
@@ -174,7 +165,7 @@ describe("participate and leave", () => {
 
             try {
                 await program.methods
-                    .leave(new BN(tooManyShares))
+                    .withdrawLent(new BN(tooManyShares))
                     .accounts({ pool, lendMint, authority: authority.publicKey })
                     .signers([authority])
                     .rpc();
@@ -208,7 +199,7 @@ describe("participate and leave", () => {
 
             // Drain the lend vault via borrow.
             await setup.program.methods
-                .deposit(new anchor.BN(COLLATERAL_DEPOSIT))
+                .depositCollateral(new anchor.BN(COLLATERAL_DEPOSIT))
                 .accounts({
                     pool: setup.pool,
                     collateralMint: setup.collateralMint,
@@ -238,7 +229,7 @@ describe("participate and leave", () => {
 
             // Attempt to leave with all LP shares.
             await program.methods
-                .leave(new BN(LEND_AMOUNT))
+                .withdrawLent(new BN(LEND_AMOUNT))
                 .accounts({ pool, lendMint, authority: authority.publicKey })
                 .signers([authority])
                 .rpc();

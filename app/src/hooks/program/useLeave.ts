@@ -29,7 +29,7 @@ export function useLeave() {
             const authority = new PublicKey(wallet.account.publicKey)
 
             const tx = await readonlyProgram.methods
-                .leave(shares)
+                .withdrawLent(shares)
                 .accounts({
                     pool,
                     lendMint,
