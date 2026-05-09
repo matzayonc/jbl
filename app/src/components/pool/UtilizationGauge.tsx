@@ -1,4 +1,4 @@
-import { formatLargeUSD } from "@/lib/formatters";
+import { formatRawTokens } from "@/lib/formatters";
 
 interface UtilizationGaugeProps {
   utilization: number;
@@ -120,7 +120,7 @@ export function UtilizationGauge({
             Total Supply
           </span>
           <span className="text-sm font-semibold text-[#c698e5] tabular-nums">
-            {formatLargeUSD(totalSupplied)}
+            {formatRawTokens(totalSupplied)}
           </span>
           <div className="h-0.5 rounded-full bg-[#c698e5]/20 mt-0.5">
             <div className="h-full w-full rounded-full bg-[#c698e5]" />
@@ -135,7 +135,7 @@ export function UtilizationGauge({
             className="text-sm font-semibold tabular-nums"
             style={{ color }}
           >
-            {formatLargeUSD(totalBorrowed)}
+            {formatRawTokens(totalBorrowed)}
           </span>
           <div className="h-0.5 rounded-full bg-[#c698e5]/10 mt-0.5 w-full overflow-hidden">
             <div
@@ -150,7 +150,7 @@ export function UtilizationGauge({
             Available
           </span>
           <span className="text-sm font-medium text-[#efe0f7]/55 tabular-nums">
-            {formatLargeUSD(available)}
+            {formatRawTokens(available)}
           </span>
           <div className="h-0.5 rounded-full bg-[#efe0f7]/8 mt-0.5 w-full overflow-hidden">
             <div
