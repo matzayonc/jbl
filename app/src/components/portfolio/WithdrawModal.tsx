@@ -13,6 +13,7 @@ export interface WithdrawPosition {
 interface WithdrawModalProps {
   position: WithdrawPosition;
   onClose: () => void;
+  disabled?: boolean;
   onWithdraw?: (amount: number) => Promise<void>;
   isPending?: boolean;
 }

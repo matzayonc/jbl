@@ -1,13 +1,11 @@
 import { type PoolData } from "@/hooks/program/useLendingAccount";
 import { useRepay } from "@/hooks/program/useRepay";
 import { useUserPosition } from "@/hooks/program/useUserPosition";
-import { useWithdraw } from "@/hooks/program/useWithdraw";
 import { useMintDecimals } from "@/hooks/useMintDecimals";
 import { cn } from "@/lib/utils";
 import type { Pool } from "@/types/pool";
 import { BN } from "@anchor-lang/core";
 import { useWalletConnection } from "@solana/react-hooks";
-import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
 import { useMemo, useState } from "react";
 import { HealthBadge } from "../common/Badge";
@@ -16,7 +14,7 @@ import { LeaveModal } from "../pool/LeaveModal";
 // import { PutLpModal } from "./PutLpModal";
 import { RepayModal, type RepayPosition } from "./RepayModal";
 // import { TakeLpModal } from "./TakeLpModal";
-import { WithdrawModal, type WithdrawPosition } from "./WithdrawModal";
+import { type WithdrawPosition } from "./WithdrawModal";
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -32,13 +30,11 @@ function SectionLabel({ label }: { label: string }) {
 
 function LendRow({
   pos,
-  onWithdraw,
   // onClaimLp,
   // onPutLp,
   onRedeemLp,
 }: {
   pos: WithdrawPosition;
-  onWithdraw: () => void;
   // onClaimLp?: () => void;
   // onPutLp?: () => void;
   onRedeemLp?: () => void;
@@ -103,13 +99,12 @@ function LendRow({
       </div>
 
       <div className="flex items-center gap-2 ml-auto">
-        <PositionActionButton label="Withdraw" onClick={onWithdraw} />
         {/* {onClaimLp && (
           <PositionActionButton label="Take LP" onClick={onClaimLp} />
         )}
         {onPutLp && <PositionActionButton label="Put LP" onClick={onPutLp} />} */}
         {onRedeemLp && (
-          <PositionActionButton label="Leave" onClick={onRedeemLp} />
+          <PositionActionButton label="Withdraw" onClick={onRedeemLp} />
         )}
       </div>
     </div>
@@ -128,12 +123,12 @@ function BorrowRow({
       {/* Borrowed asset (primary) */}
       <div className="flex items-center gap-2 min-w-[90px]">
         <img
-          src={pos.collateralIcon}
-          alt={pos.collateralAsset}
+          src={pos.borrowedIcon}
+          alt={pos.borrowedAsset}
           className="h-6 w-6 rounded-full"
         />
         <p className="text-sm font-semibold text-[#efe0f7]">
-          {pos.collateralAsset}
+          {pos.borrowedAsset}
         </p>
       </div>
 
@@ -207,7 +202,6 @@ function BorrowRow({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 type ModalState =
-  | { type: "withdraw"; pos: WithdrawPosition }
   | { type: "repay"; pos: RepayPosition }
   // | { type: "takeLp" }
   // | { type: "putLp" }
@@ -255,7 +249,6 @@ export function PoolPositionPanel({
   const { data: lendDecimals } = useMintDecimals(poolData.lendMint ?? null);
   // const lpWalletBalance = useTokenBalance(poolData.lpMint ?? null);
 
-  const withdrawMutation = useWithdraw();
   const repayMutation = useRepay();
 
   // Compute on-chain amounts as human-readable numbers
@@ -301,22 +294,6 @@ export function PoolPositionPanel({
       }
     : null;
 
-  async function handleWithdraw(amount: number) {
-    if (!poolData || !walletPubKey || !poolPubKey) return;
-    const decimals = collateralDecimals ?? 9;
-    const rawAmount = new BN(Math.floor(amount * 10 ** decimals));
-    const userTokenAccount = getAssociatedTokenAddressSync(
-      poolData.collateralMint,
-      walletPubKey,
-    );
-    await withdrawMutation.mutateAsync({
-      pool: poolPubKey,
-      collateralMint: poolData.collateralMint,
-      userTokenAccount,
-      amount: rawAmount,
-    });
-  }
-
   async function handleRepay(amount: number) {
     if (!poolData || !poolPubKey) return;
     const decimals = lendDecimals ?? 6;
@@ -357,7 +334,6 @@ export function PoolPositionPanel({
             <SectionLabel label="Lend" />
             <LendRow
               pos={lendPos}
-              onWithdraw={() => setModal({ type: "withdraw", pos: lendPos })}
               // onClaimLp={true ? () => setModal({ type: "takeLp" }) : undefined}
               // onPutLp={true ? () => setModal({ type: "putLp" }) : undefined}
               onRedeemLp={
@@ -378,14 +354,6 @@ export function PoolPositionPanel({
         )}
       </div>
 
-      {modal?.type === "withdraw" && (
-        <WithdrawModal
-          position={modal.pos}
-          isPending={withdrawMutation.isPending}
-          onWithdraw={handleWithdraw}
-          onClose={() => setModal(null)}
-        />
-      )}
       {modal?.type === "repay" && (
         <RepayModal
           position={modal.pos}
@@ -413,7 +381,7 @@ export function PoolPositionPanel({
         <LeaveModal
           pool={pool}
           poolData={poolData}
-          position={{ lpTokensOwed: userPosition.lpTokensOwed }}
+          position={{ lpTokensOwed: userPosition.debtShares }}
           onClose={() => setModal(null)}
         />
       )}

@@ -2,12 +2,7 @@ import { ActionButton } from "@/components/common/ActionButton";
 import { formatRawTokens } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { Category, Pool } from "@/types/pool";
-import {
-  ExternalLink,
-  Layers,
-  TrendingDown,
-  TrendingUp,
-} from "lucide-react";
+import { ExternalLink, Layers, TrendingDown, TrendingUp } from "lucide-react";
 
 const CATEGORY_BADGE: Record<Category, { label: string; classes: string }> = {
   stablecoin: {
@@ -27,7 +22,9 @@ const CATEGORY_BADGE: Record<Category, { label: string; classes: string }> = {
 interface PoolHeroProps {
   pool: Pool;
   isWalletConnected: boolean;
+  hasWithdrawPosition: boolean;
   onDeposit: () => void;
+  onWithdraw: () => void;
   onBorrow: () => void;
   onLend: () => void;
 }
@@ -35,7 +32,9 @@ interface PoolHeroProps {
 export function PoolHero({
   pool,
   isWalletConnected,
+  hasWithdrawPosition,
   onDeposit,
+  onWithdraw,
   onBorrow,
   onLend,
 }: PoolHeroProps) {
@@ -71,6 +70,19 @@ export function PoolHero({
             >
               {CATEGORY_BADGE[pool.category].label}
             </span>
+            {/* Collateral badge — shows what borrowers must deposit */}
+            <span className="inline-flex items-center gap-1 text-[10px] text-[#efe0f7]/35 px-2 py-0.5 rounded-md bg-[#efe0f7]/5 border border-[#efe0f7]/10">
+              {pool.collateralIcon && (
+                <img
+                  src={pool.collateralIcon}
+                  alt={pool.collateralSymbol}
+                  width={12}
+                  height={12}
+                  className="h-3 w-3 rounded-full object-contain"
+                />
+              )}
+              Collateral: {pool.collateralSymbol}
+            </span>
             <a
               href={`https://solscan.io/account/${pool.address}`}
               target="_blank"
@@ -86,18 +98,20 @@ export function PoolHero({
 
       <div className="flex flex-wrap items-center gap-2">
         <ActionButton
-          label="Deposit"
+          label="Deposit Collateral"
           variant="primary"
+          compact
           disabled={!isWalletConnected}
           onClick={onDeposit}
-          icon={<TrendingUp className="h-4 w-4 text-[#17081f]" />}
+          icon={<TrendingUp className="h-3.5 w-3.5 text-[#17081f]" />}
         />
         <ActionButton
-          label="Borrow"
+          label="Withdraw Collateral"
           variant="secondary"
-          disabled={!isWalletConnected}
-          onClick={onBorrow}
-          icon={<TrendingDown className="h-4 w-4 text-[#c698e5]" />}
+          compact
+          disabled={!isWalletConnected || !hasWithdrawPosition}
+          onClick={onWithdraw}
+          icon={<TrendingDown className="h-3.5 w-3.5 text-[#c698e5]" />}
         />
         <ActionButton
           label="Lend"
@@ -105,6 +119,13 @@ export function PoolHero({
           disabled={!isWalletConnected}
           onClick={onLend}
           icon={<Layers className="h-4 w-4 text-[#c698e5]" />}
+        />
+        <ActionButton
+          label="Borrow"
+          variant="secondary"
+          disabled={!isWalletConnected}
+          onClick={onBorrow}
+          icon={<TrendingDown className="h-4 w-4 text-[#c698e5]" />}
         />
       </div>
     </div>
@@ -119,19 +140,22 @@ function StatItem({
   label,
   value,
   isApy,
+  isCost,
 }: {
   label: string;
   value: string;
   isApy?: boolean;
+  isCost?: boolean;
   last?: boolean;
 }) {
+  const valueClass = isApy
+    ? "text-[#34d399]"
+    : isCost
+    ? "text-[#f59e0b]"
+    : "text-[#efe0f7]";
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-1 px-6 py-5 min-w-[120px]">
-      <p
-        className={`text-xl font-semibold tabular-nums ${
-          isApy ? "text-[#34d399]" : "text-[#efe0f7]"
-        }`}
-      >
+      <p className={`text-xl font-semibold tabular-nums ${valueClass}`}>
         {value}
       </p>
       <p className="text-xs text-[#efe0f7]/40 text-center leading-tight">
@@ -169,6 +193,7 @@ export function PoolStatsBar({ pool }: PoolStatsBarProps) {
         <StatItem
           label="Borrow APY"
           value={`${pool.borrowAPY.toFixed(2)}%`}
+          isCost
           last
         />
         <StatItem label="Max LTV" value={`${pool.ltv}%`} />
