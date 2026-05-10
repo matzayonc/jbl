@@ -4,6 +4,7 @@ import { PublicKey } from '@solana/web3.js'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../../lib/queryKeys'
 import { handleTransaction } from '../../lib/txHandler'
+import { useWalletBalancesStore } from '../../store/wallet.store'
 import { useAnchorProgram } from '../useAnchorProgram'
 
 export interface RepayParams {
@@ -49,7 +50,7 @@ export function useRepay() {
                 queryClient.invalidateQueries({
                     queryKey: queryKeys.userPosition.one(pool, authority),
                 })
-                queryClient.invalidateQueries({ queryKey: queryKeys.wallet.balances(authority.toBase58()) })
+                void useWalletBalancesStore.getState().fetch(authority.toBase58())
             }
         },
     })

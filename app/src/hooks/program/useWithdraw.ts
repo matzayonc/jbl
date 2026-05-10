@@ -4,6 +4,7 @@ import { PublicKey } from '@solana/web3.js'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../../lib/queryKeys'
 import { handleTransaction } from '../../lib/txHandler'
+import { useWalletBalancesStore } from '../../store/wallet.store'
 import { useAnchorProgram } from '../useAnchorProgram'
 
 export interface WithdrawParams {
@@ -55,6 +56,7 @@ export function useWithdraw() {
                 queryClient.invalidateQueries({
                     queryKey: queryKeys.userPosition.one(pool, authority),
                 })
+                void useWalletBalancesStore.getState().fetch(authority.toBase58())
             }
         },
     })

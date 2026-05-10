@@ -1,3 +1,4 @@
+import { useWalletBalancesStore } from '@/store/wallet.store'
 import * as anchor from '@anchor-lang/core'
 import { useWalletConnection } from '@solana/react-hooks'
 import { PublicKey } from '@solana/web3.js'
@@ -50,6 +51,7 @@ export function useLeave() {
             queryClient.invalidateQueries({ queryKey: queryKeys.lending.one(pool) })
             if (authority) {
                 queryClient.invalidateQueries({ queryKey: queryKeys.wallet.balances(authority.toBase58()) })
+                void useWalletBalancesStore.getState().fetch(authority.toBase58())
             }
         },
     })
