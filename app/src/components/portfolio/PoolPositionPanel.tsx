@@ -13,9 +13,9 @@ import { useMemo, useState } from "react";
 import { HealthBadge } from "../common/Badge";
 import { PositionActionButton } from "../common/PositionActionButton";
 import { LeaveModal } from "../pool/LeaveModal";
-import { PutLpModal } from "./PutLpModal";
+// import { PutLpModal } from "./PutLpModal";
 import { RepayModal, type RepayPosition } from "./RepayModal";
-import { TakeLpModal } from "./TakeLpModal";
+// import { TakeLpModal } from "./TakeLpModal";
 import { WithdrawModal, type WithdrawPosition } from "./WithdrawModal";
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -33,14 +33,14 @@ function SectionLabel({ label }: { label: string }) {
 function LendRow({
   pos,
   onWithdraw,
-  onClaimLp,
-  onPutLp,
+  // onClaimLp,
+  // onPutLp,
   onRedeemLp,
 }: {
   pos: WithdrawPosition;
   onWithdraw: () => void;
-  onClaimLp?: () => void;
-  onPutLp?: () => void;
+  // onClaimLp?: () => void;
+  // onPutLp?: () => void;
   onRedeemLp?: () => void;
 }) {
   return (
@@ -104,10 +104,10 @@ function LendRow({
 
       <div className="flex items-center gap-2 ml-auto">
         <PositionActionButton label="Withdraw" onClick={onWithdraw} />
-        {onClaimLp && (
+        {/* {onClaimLp && (
           <PositionActionButton label="Take LP" onClick={onClaimLp} />
         )}
-        {onPutLp && <PositionActionButton label="Put LP" onClick={onPutLp} />}
+        {onPutLp && <PositionActionButton label="Put LP" onClick={onPutLp} />} */}
         {onRedeemLp && (
           <PositionActionButton label="Leave" onClick={onRedeemLp} />
         )}
@@ -209,8 +209,8 @@ function BorrowRow({
 type ModalState =
   | { type: "withdraw"; pos: WithdrawPosition }
   | { type: "repay"; pos: RepayPosition }
-  | { type: "takeLp" }
-  | { type: "putLp" }
+  // | { type: "takeLp" }
+  // | { type: "putLp" }
   | { type: "leaveLp" }
   | null;
 
@@ -358,8 +358,8 @@ export function PoolPositionPanel({
             <LendRow
               pos={lendPos}
               onWithdraw={() => setModal({ type: "withdraw", pos: lendPos })}
-              onClaimLp={true ? () => setModal({ type: "takeLp" }) : undefined}
-              onPutLp={true ? () => setModal({ type: "putLp" }) : undefined}
+              // onClaimLp={true ? () => setModal({ type: "takeLp" }) : undefined}
+              // onPutLp={true ? () => setModal({ type: "putLp" }) : undefined}
               onRedeemLp={
                 true ? () => setModal({ type: "leaveLp" }) : undefined
               }
@@ -394,7 +394,7 @@ export function PoolPositionPanel({
           onClose={() => setModal(null)}
         />
       )}
-      {modal?.type === "takeLp" && pool && poolData && userPosition && (
+      {/* {modal?.type === "takeLp" && pool && poolData && userPosition && (
         <TakeLpModal
           pool={pool}
           poolData={poolData}
@@ -408,7 +408,7 @@ export function PoolPositionPanel({
           poolData={poolData}
           onClose={() => setModal(null)}
         />
-      )}
+      )} */}
       {modal?.type === "leaveLp" && pool && poolData && userPosition && (
         <LeaveModal
           pool={pool}

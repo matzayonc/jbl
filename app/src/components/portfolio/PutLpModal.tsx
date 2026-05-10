@@ -1,4 +1,4 @@
-import { usePutLp } from "@/hooks/program/usePutLp";
+// import { usePutLp } from "@/hooks/program/usePutLp";
 import { useMintDecimals } from "@/hooks/useMintDecimals";
 import { useTokenBalance } from "@/hooks/useWalletBalances";
 import { cn } from "@/lib/utils";
@@ -22,8 +22,9 @@ export function PutLpModal({ pool, poolData, onClose }: PutLpModalProps) {
   const { data: lpDecimals } = useMintDecimals(poolData.lpMint);
   const lpBalance = useTokenBalance(poolData.lpMint);
 
-  const putLpMutation = usePutLp();
-  const isPending = putLpMutation.isPending;
+  // const putLpMutation = usePutLp();
+  // const isPending = putLpMutation.isPending;
+  const isPending = false;
 
   const limit = lpBalance?.uiAmount ?? 0;
   const decimals = lpDecimals ?? 6;
@@ -37,10 +38,10 @@ export function PutLpModal({ pool, poolData, onClose }: PutLpModalProps) {
     if (!numAmount || numAmount <= 0 || !wallet) return;
 
     const rawAmount = new BN(Math.floor(numAmount * 10 ** decimals));
-    await putLpMutation.mutateAsync({
-      pool: poolData.publicKey,
-      amount: rawAmount,
-    });
+    // await putLpMutation.mutateAsync({
+    //   pool: poolData.publicKey,
+    //   amount: rawAmount,
+    // });
     onClose();
   }
 

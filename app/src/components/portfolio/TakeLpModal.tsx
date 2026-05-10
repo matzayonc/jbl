@@ -1,4 +1,4 @@
-import { useTakeLp } from "@/hooks/program/useTakeLp";
+// import { useTakeLp } from "@/hooks/program/useTakeLp";
 import { useMintDecimals } from "@/hooks/useMintDecimals";
 import { cn } from "@/lib/utils";
 import type { PoolData } from "@/types/lending";
@@ -37,8 +37,9 @@ export function TakeLpModal({
     [position.lpTokensOwed, decimals],
   );
 
-  const takeLpMutation = useTakeLp();
-  const isPending = takeLpMutation.isPending;
+  // const takeLpMutation = useTakeLp();
+  // const isPending = takeLpMutation.isPending;
+  const isPending = false;
 
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose();
@@ -49,10 +50,10 @@ export function TakeLpModal({
     if (!numAmount || numAmount <= 0 || !wallet) return;
 
     const rawAmount = new BN(Math.floor(numAmount * 10 ** decimals));
-    await takeLpMutation.mutateAsync({
-      pool: poolData.publicKey,
-      amount: rawAmount,
-    });
+    // await takeLpMutation.mutateAsync({
+    //   pool: poolData.publicKey,
+    //   amount: rawAmount,
+    // });
     onClose();
   }
 
