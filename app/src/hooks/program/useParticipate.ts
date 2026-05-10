@@ -17,8 +17,8 @@ export interface ParticipateParams {
 
 /**
  * Deposit lend tokens into a pool (lender side).
- * On success, LP tokens are minted to the caller's LP token account.
- * Automatically invalidates the pool query on success.
+ * On success, LP tokens are minted directly to the user's wallet.
+ * Automatically invalidates the pool and user-position queries on success.
  */
 export function useParticipate() {
     const { connected, wallet } = useWalletConnection()
@@ -31,7 +31,7 @@ export function useParticipate() {
             const authority = new PublicKey(wallet.account.publicKey)
 
             const tx = await readonlyProgram.methods
-                .participate(amount)
+                .depositLent(amount)
                 .accounts({
                     pool,
                     lendMint,
@@ -52,6 +52,9 @@ export function useParticipate() {
             const authority = wallet ? new PublicKey(wallet.account.publicKey) : null
             queryClient.invalidateQueries({ queryKey: queryKeys.lending.one(pool) })
             if (authority) {
+                queryClient.invalidateQueries({
+                    queryKey: queryKeys.userPosition.one(pool, authority),
+                })
                 queryClient.invalidateQueries({ queryKey: queryKeys.wallet.balances(authority.toBase58()) })
             }
         },

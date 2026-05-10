@@ -87,8 +87,8 @@ export function UtilizationGauge({
               pct < 60
                 ? "linear-gradient(to right, rgba(52,211,153,0.5), #34d399)"
                 : pct < 80
-                ? "linear-gradient(to right, rgba(52,211,153,0.5), #f0a854)"
-                : "linear-gradient(to right, rgba(52,211,153,0.5), #f0a854, #d45677)",
+                  ? "linear-gradient(to right, rgba(52,211,153,0.5), #f0a854)"
+                  : "linear-gradient(to right, rgba(52,211,153,0.5), #f0a854, #d45677)",
           }}
         />
         {/* Zone dividers */}

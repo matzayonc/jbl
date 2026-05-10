@@ -142,16 +142,6 @@ pub fn process_queue_entry_handler(_ctx: Context<ProcessQueueEntry>) -> Result<(
     //     )?;
 
     //     // ── 7. Update state and dequeue ───────────────────────────────────────────
-    //     let position = &ctx.accounts.user_position;
-    //     let lp_owed_reduction = if position.lp_tokens_owed > 0 {
-    //         (amount as u128)
-    //             .checked_mul(position.lp_tokens_owed as u128)
-    //             .ok_or(crate::error::ErrorCode::MathOverflow)?
-    //             .checked_div(position.deposited_amount as u128)
-    //             .ok_or(crate::error::ErrorCode::MathOverflow)? as u64
-    //     } else {
-    //         0
-    //     };
     //     let lp_issued_reduction = if lp_issued_before > 0 {
     //         (amount as u128)
     //             .checked_mul(lp_issued_before as u128)
@@ -177,10 +167,6 @@ pub fn process_queue_entry_handler(_ctx: Context<ProcessQueueEntry>) -> Result<(
 
     //     let position = &mut ctx.accounts.user_position;
     //     position.deposited_amount = remaining_deposit;
-    //     position.lp_tokens_owed = position
-    //         .lp_tokens_owed
-    //         .checked_sub(lp_owed_reduction)
-    //         .ok_or(crate::error::ErrorCode::MathOverflow)?;
 
     //     msg!(
     //         "Processed queued withdrawal: {} tokens for requester {}.",

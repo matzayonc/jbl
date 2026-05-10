@@ -1,12 +1,10 @@
 use crate::state::Pool;
 use anchor_lang::prelude::*;
-use anchor_spl::{
-    associated_token::AssociatedToken,
-    token::{Mint, MintTo, Token, TokenAccount},
-};
+use anchor_spl::associated_token::AssociatedToken;
+use anchor_spl::token::{Mint, MintTo, Token, TokenAccount};
 
 #[derive(Accounts)]
-pub struct Participate<'info> {
+pub struct DepositLent<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
@@ -20,7 +18,7 @@ pub struct Participate<'info> {
     /// The lend token mint accepted by this pool.
     pub lend_mint: Account<'info, Mint>,
 
-    /// The pool's LP token mint. `state` PDA is the mint authority.
+    /// The LP token mint for this lending pool.
     #[account(
         mut,
         seeds = [b"lp_mint", pool.key().as_ref()],
@@ -42,6 +40,15 @@ pub struct Participate<'info> {
     )]
     pub user_lend_token_account: Account<'info, TokenAccount>,
 
+    /// The user's LP token account (destination).
+    #[account(
+        init_if_needed,
+        payer = authority,
+        associated_token::mint = lp_mint,
+        associated_token::authority = authority,
+    )]
+    pub user_lp_token_account: Account<'info, TokenAccount>,
+
     /// The pool's lend vault — holds deposited lend tokens.
     #[account(
         mut,
@@ -52,21 +59,12 @@ pub struct Participate<'info> {
     )]
     pub lend_vault: Account<'info, TokenAccount>,
 
-    /// The user's LP token account — created if it doesn't already exist.
-    #[account(
-        init_if_needed,
-        payer = authority,
-        associated_token::mint = lp_mint,
-        associated_token::authority = authority,
-    )]
-    pub user_lp_token_account: Account<'info, TokenAccount>,
-
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
 
-pub fn participate_handler(ctx: Context<Participate>, amount: u64) -> Result<()> {
+pub fn deposit_lent_handler(ctx: Context<DepositLent>, amount: u64) -> Result<()> {
     require!(amount > 0, crate::error::ErrorCode::InvalidAmount);
 
     // Validate lend_mint matches what is stored in the pool.
@@ -111,7 +109,7 @@ pub fn participate_handler(ctx: Context<Participate>, amount: u64) -> Result<()>
         amount,
     )?;
 
-    // ── 3. Mint LP tokens to the user (state PDA is the mint authority) ───────
+    // ── 3. Mint LP tokens directly to the user's wallet ──────────────────────
     let state_bump = ctx.bumps.state;
     let seeds = &[b"state" as &[u8], &[state_bump]];
     let signer = &[&seeds[..]];
@@ -142,7 +140,7 @@ pub fn participate_handler(ctx: Context<Participate>, amount: u64) -> Result<()>
             .ok_or(crate::error::ErrorCode::MathOverflow)?;
 
         msg!(
-            "Participate: deposited {} lend tokens, minted {} LP. total_lend_deposited: {}, total_lp_issued: {}",
+            "DepositLent: deposited {} lend tokens, minted {} LP tokens. total_lend_deposited: {}, total_lp_issued: {}",
             amount,
             lp_to_mint,
             pool.total_lend_deposited,

@@ -148,8 +148,6 @@ pub struct UserPosition {
     pub pool: Pubkey,
     /// Raw amount of collateral tokens deposited (no shares — tracked 1:1).
     pub collateral_deposited: u64,
-    /// LP tokens that will be minted when `take_lp` is called (legacy; 0 for collateral positions).
-    pub lp_tokens_owed: u64,
     /// Debt shares held by this user (0 if no active borrow).
     /// Current debt = debt_shares * pool.total_borrowed / pool.total_debt_shares
     pub debt_shares: u64,

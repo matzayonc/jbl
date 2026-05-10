@@ -72,8 +72,7 @@ fn create_token_account_ixs(
         &spl_token::id(),
     );
     let init_ix =
-        spl_token::instruction::initialize_account(&spl_token::id(), account, mint, owner)
-            .unwrap();
+        spl_token::instruction::initialize_account(&spl_token::id(), account, mint, owner).unwrap();
     [create_ix, init_ix]
 }
 
@@ -140,6 +139,7 @@ struct Setup {
     lend_mint: Pubkey,
     collateral_vault_pda: Pubkey,
     lend_vault_pda: Pubkey,
+    #[allow(dead_code)]
     lp_mint_pda: Pubkey,
     user_lend_account: Pubkey,
     user_collateral_account: Pubkey,
@@ -168,10 +168,18 @@ fn setup(seed_lend_amount: u64) -> Setup {
 
     // ── Create mints ─────────────────────────────────────────────────────────
     let mint_rent = svm.minimum_balance_for_rent_exemption(spl_token::state::Mint::LEN);
-    let col_mint_ixs =
-        create_mint_ixs(&payer.pubkey(), &collateral_mint_kp.pubkey(), &payer.pubkey(), mint_rent);
-    let lend_mint_ixs =
-        create_mint_ixs(&payer.pubkey(), &lend_mint_kp.pubkey(), &payer.pubkey(), mint_rent);
+    let col_mint_ixs = create_mint_ixs(
+        &payer.pubkey(),
+        &collateral_mint_kp.pubkey(),
+        &payer.pubkey(),
+        mint_rent,
+    );
+    let lend_mint_ixs = create_mint_ixs(
+        &payer.pubkey(),
+        &lend_mint_kp.pubkey(),
+        &payer.pubkey(),
+        mint_rent,
+    );
 
     send_ixs(
         &mut svm,
@@ -206,7 +214,13 @@ fn setup(seed_lend_amount: u64) -> Setup {
 
     let create_ix = Instruction::new_with_bytes(
         program_id,
-        &jbl::instruction::Create { m1: 0, c1: 50, m2: 0, c2: 0 }.data(),
+        &jbl::instruction::Create {
+            m1: 0,
+            c1: 50,
+            m2: 0,
+            c2: 0,
+        }
+        .data(),
         jbl::accounts::Create {
             pool: pool_pubkey,
             state: state_pda,
@@ -232,8 +246,12 @@ fn setup(seed_lend_amount: u64) -> Setup {
 
     // ── Seed lend vault directly + patch pool state ───────────────────────────
     if seed_lend_amount > 0 {
-        let seed_ix =
-            mint_to_ix(&lend_mint_kp.pubkey(), &lend_vault_pda, &payer.pubkey(), seed_lend_amount);
+        let seed_ix = mint_to_ix(
+            &lend_mint_kp.pubkey(),
+            &lend_vault_pda,
+            &payer.pubkey(),
+            seed_lend_amount,
+        );
         send_ixs(&mut svm, &[seed_ix], &payer, &[&payer]);
 
         // Patch pool.total_lend_deposited so flash_borrow accounting doesn't
@@ -351,8 +369,7 @@ fn test_flash_loan_borrow_repay_same_tx() {
     let payer_pk = s.payer.pubkey();
     let bh = s.svm.latest_blockhash();
     let msg = Message::new_with_blockhash(&[borrow_ix, repay_ix], Some(&payer_pk), &bh);
-    let tx =
-        VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&s.payer]).unwrap();
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&s.payer]).unwrap();
     let res = s.svm.send_transaction(tx);
     assert!(res.is_ok(), "flash borrow+repay failed: {:?}", res.err());
 
@@ -415,8 +432,7 @@ fn test_flash_loan_underpay_fails() {
     let payer_pk = s.payer.pubkey();
     let bh = s.svm.latest_blockhash();
     let msg = Message::new_with_blockhash(&[borrow_ix, repay_ix], Some(&payer_pk), &bh);
-    let tx =
-        VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&s.payer]).unwrap();
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&s.payer]).unwrap();
     let res = s.svm.send_transaction(tx);
     assert!(res.is_err(), "expected underpay to fail");
 }
@@ -440,17 +456,29 @@ fn test_flash_loan_leveraged_swap() {
     //   - REPAY lend tokens so that after flash_borrow (adds BORROW) and
     //     mock_swap (burns BORROW), they still have REPAY = BORROW + FEE left.
     //     i.e. net pre-fund = REPAY (500_045) lend tokens
-    let fund_col_ix =
-        mint_to_ix(&s.collateral_mint, &s.user_collateral_account, &payer_pk, INITIAL_COLLATERAL);
+    let fund_col_ix = mint_to_ix(
+        &s.collateral_mint,
+        &s.user_collateral_account,
+        &payer_pk,
+        INITIAL_COLLATERAL,
+    );
     let fund_lend_ix = mint_to_ix(&s.lend_mint, &s.user_lend_account, &payer_pk, REPAY);
-    send_ixs(&mut s.svm, &[fund_col_ix, fund_lend_ix], &s.payer, &[&s.payer]);
+    send_ixs(
+        &mut s.svm,
+        &[fund_col_ix, fund_lend_ix],
+        &s.payer,
+        &[&s.payer],
+    );
 
     // ── Initial collateral deposit (separate transaction) ─────────────────────
     let (user_position_pda, _) = find_user_position_pda(&s.pool_pubkey, &payer_pk, &program_id);
     let deposit_initial_ix = Instruction::new_with_bytes(
         program_id,
-        &jbl::instruction::Deposit { amount: INITIAL_COLLATERAL }.data(),
-        jbl::accounts::Deposit {
+        &jbl::instruction::DepositCollateral {
+            amount: INITIAL_COLLATERAL,
+        }
+        .data(),
+        jbl::accounts::DepositCollateral {
             pool: s.pool_pubkey,
             collateral_mint: s.collateral_mint,
             authority: payer_pk,
@@ -497,8 +525,8 @@ fn test_flash_loan_leveraged_swap() {
 
     let deposit_leveraged_ix = Instruction::new_with_bytes(
         program_id,
-        &jbl::instruction::Deposit { amount: BORROW }.data(),
-        jbl::accounts::Deposit {
+        &jbl::instruction::DepositCollateral { amount: BORROW }.data(),
+        jbl::accounts::DepositCollateral {
             pool: s.pool_pubkey,
             collateral_mint: s.collateral_mint,
             authority: payer_pk,

@@ -4,7 +4,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
 #[derive(Accounts)]
-pub struct Withdraw<'info> {
+pub struct WithdrawCollateral<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
@@ -53,7 +53,7 @@ pub struct Withdraw<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn withdraw_handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
+pub fn withdraw_collateral_handler(ctx: Context<WithdrawCollateral>, amount: u64) -> Result<()> {
     require!(amount > 0, crate::error::ErrorCode::InvalidAmount);
     require!(
         amount <= ctx.accounts.user_position.collateral_deposited,

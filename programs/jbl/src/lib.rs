@@ -24,40 +24,32 @@ pub mod jbl {
         create_handler(ctx, m1, c1, m2, c2)
     }
 
-    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
-        deposit_handler(ctx, amount)
+    pub fn deposit_collateral(ctx: Context<DepositCollateral>, amount: u64) -> Result<()> {
+        deposit_collateral_handler(ctx, amount)
     }
 
     pub fn borrow(ctx: Context<Borrow>, amount: u64) -> Result<()> {
         borrow_handler(ctx, amount)
     }
 
-    pub fn take_lp(ctx: Context<TakeLp>, amount: u64) -> Result<()> {
-        take_lp_handler(ctx, amount)
-    }
-
-    pub fn put_lp(ctx: Context<PutLp>, amount: u64) -> Result<()> {
-        put_lp_handler(ctx, amount)
-    }
-
     pub fn repay(ctx: Context<Repay>, amount: u64) -> Result<()> {
         repay_handler(ctx, amount)
     }
 
-    pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
-        withdraw_handler(ctx, amount)
+    pub fn withdraw_collateral(ctx: Context<WithdrawCollateral>, amount: u64) -> Result<()> {
+        withdraw_collateral_handler(ctx, amount)
     }
 
     pub fn process_queue_entry(ctx: Context<ProcessQueueEntry>) -> Result<()> {
         process_queue_entry_handler(ctx)
     }
 
-    pub fn participate(ctx: Context<Participate>, amount: u64) -> Result<()> {
-        participate_handler(ctx, amount)
+    pub fn deposit_lent(ctx: Context<DepositLent>, amount: u64) -> Result<()> {
+        deposit_lent_handler(ctx, amount)
     }
 
-    pub fn leave(ctx: Context<Leave>, shares: u64) -> Result<()> {
-        leave_handler(ctx, shares)
+    pub fn withdraw_lent(ctx: Context<WithdrawLent>, shares: u64) -> Result<()> {
+        withdraw_lent_handler(ctx, shares)
     }
 
     pub fn process_vault_queue_entry(ctx: Context<ProcessVaultQueueEntry>) -> Result<()> {

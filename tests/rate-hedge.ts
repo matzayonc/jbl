@@ -355,7 +355,7 @@ describe("rate-hedge", () => {
                 borrower = await createLender(setup);
 
                 await setup.program.methods
-                    .deposit(new BN(BORROWER_COLLATERAL))
+                    .depositCollateral(new BN(BORROWER_COLLATERAL))
                     .accounts({
                         pool: setup.pool,
                         collateralMint: setup.collateralMint,
@@ -479,7 +479,7 @@ describe("rate-hedge", () => {
 
                 borrower = await createLender(setup);
                 await setup.program.methods
-                    .deposit(new BN(BORROWER_COLLATERAL))
+                    .depositCollateral(new BN(BORROWER_COLLATERAL))
                     .accounts({
                         pool: setup.pool,
                         collateralMint: setup.collateralMint,
@@ -602,7 +602,7 @@ describe("rate-hedge", () => {
 
                 borrower = await createLender(setup);
                 await setup.program.methods
-                    .deposit(new BN(BORROWER_COLLATERAL))
+                    .depositCollateral(new BN(BORROWER_COLLATERAL))
                     .accounts({
                         pool: setup.pool,
                         collateralMint: setup.collateralMint,
@@ -717,7 +717,7 @@ describe("rate-hedge", () => {
             borrower = await createLender(setup);
 
             await setup.program.methods
-                .deposit(new BN(BORROWER_COLLATERAL_SETTLE))
+                .depositCollateral(new BN(BORROWER_COLLATERAL_SETTLE))
                 .accounts({
                     pool: setup.pool,
                     collateralMint: setup.collateralMint,
@@ -794,7 +794,7 @@ describe("rate-hedge", () => {
                 borrower = await createLender(setup);
 
                 await setup.program.methods
-                    .deposit(new BN(BORROWER_COLLATERAL_SETTLE))
+                    .depositCollateral(new BN(BORROWER_COLLATERAL_SETTLE))
                     .accounts({
                         pool: setup.pool,
                         collateralMint: setup.collateralMint,

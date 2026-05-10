@@ -3,7 +3,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 
 #[derive(Accounts)]
-pub struct Deposit<'info> {
+pub struct DepositCollateral<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
@@ -44,7 +44,7 @@ pub struct Deposit<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn deposit_handler(ctx: Context<Deposit>, amount: u64) -> Result<()> {
+pub fn deposit_collateral_handler(ctx: Context<DepositCollateral>, amount: u64) -> Result<()> {
     require!(amount > 0, crate::error::ErrorCode::InvalidAmount);
 
     // Validate the mint matches the pool's collateral_mint.
@@ -86,7 +86,6 @@ pub fn deposit_handler(ctx: Context<Deposit>, amount: u64) -> Result<()> {
             authority: ctx.accounts.authority.key(),
             pool: ctx.accounts.pool.key(),
             collateral_deposited: amount,
-            lp_tokens_owed: 0,
             debt_shares: 0,
             bump: ctx.bumps.user_position,
         };

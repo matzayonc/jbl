@@ -31,7 +31,7 @@ export function useWithdraw() {
             const authority = new PublicKey(wallet.account.publicKey)
 
             const tx = await program.methods
-                .withdraw(amount)
+                .withdrawCollateral(amount)
                 .accounts({
                     pool,
                     collateralMint,

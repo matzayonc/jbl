@@ -160,7 +160,7 @@ describe("flash-loan", () => {
                 .instruction();
 
             const depositIx = await program.methods
-                .deposit(new BN(BORROW_AMOUNT))
+                .depositCollateral(new BN(BORROW_AMOUNT))
                 .accounts({
                     pool,
                     collateralMint,

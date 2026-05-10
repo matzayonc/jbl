@@ -6,7 +6,7 @@ use anchor_spl::{
 };
 
 #[derive(Accounts)]
-pub struct Leave<'info> {
+pub struct WithdrawLent<'info> {
     #[account(mut)]
     pub pool: AccountLoader<'info, Pool>,
 
@@ -64,7 +64,7 @@ pub struct Leave<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn leave_handler(ctx: Context<Leave>, shares: u64) -> Result<()> {
+pub fn withdraw_lent_handler(ctx: Context<WithdrawLent>, shares: u64) -> Result<()> {
     require!(shares > 0, crate::error::ErrorCode::InvalidAmount);
     require!(
         ctx.accounts.user_lp_token_account.amount >= shares,

@@ -29,7 +29,6 @@ export interface UserPositionData {
     authority: PublicKey
     pool: PublicKey
     collateralDeposited: bigint
-    lpTokensOwed: bigint
     debtShares: bigint
     bump: number
 }

@@ -9,7 +9,7 @@ const LEND_LIQUIDITY = 500_000_000; // 500 lend tokens
 
 async function depositCollateral(setup: TestSetup, authority: anchor.web3.Keypair, userTokenAccount: anchor.web3.PublicKey, amount: number) {
     await setup.program.methods
-        .deposit(new anchor.BN(amount))
+        .depositCollateral(new anchor.BN(amount))
         .accounts({
             pool: setup.pool,
             collateralMint: setup.collateralMint,
@@ -389,7 +389,7 @@ describe("borrow", () => {
         it("rejects full collateral withdraw when borrow is open (LTV breach)", async () => {
             try {
                 await setup.program.methods
-                    .withdraw(new anchor.BN(COLLATERAL_DEPOSIT))
+                    .withdrawCollateral(new anchor.BN(COLLATERAL_DEPOSIT))
                     .accounts({
                         pool: setup.pool,
                         collateralMint: setup.collateralMint,
