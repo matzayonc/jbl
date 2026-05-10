@@ -9,6 +9,8 @@ export interface RepayPosition {
   borrowedIcon: string;
   debtAmount: number;
   borrowAPY: number;
+  /** User's lend-token wallet balance — caps how much they can actually repay. */
+  walletBalance?: number;
 }
 
 interface RepayModalProps {
@@ -27,7 +29,10 @@ export function RepayModal({
   const [amount, setAmount] = useState("");
 
   const numAmount = parseFloat(amount) || 0;
-  const maxRepay = position.debtAmount;
+  const maxRepay = Math.min(
+    position.debtAmount,
+    position.walletBalance ?? position.debtAmount,
+  );
   const remaining = Math.max(maxRepay - numAmount, 0);
 
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {

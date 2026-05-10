@@ -6,114 +6,296 @@ interface UtilizationGaugeProps {
   totalBorrowed: number;
 }
 
+// ─── SVG gauge geometry ───────────────────────────────────────────────────────
+const GCX = 140; // centre x
+const GCY = 128; // centre y
+const GR = 90; // arc radius
+const STW = 15; // stroke width
+const ARC_START = 135; // degrees – 7-o'clock position
+const ARC_SWEEP = 270; // total arc span
+
+function pt(deg: number, r = GR) {
+  const rad = (deg * Math.PI) / 180;
+  return { x: GCX + r * Math.cos(rad), y: GCY + r * Math.sin(rad) };
+}
+
+function arcPath(startDeg: number, sweepDeg: number, r = GR): string {
+  if (sweepDeg <= 0) return "";
+  const clipped = Math.min(sweepDeg, 359.9);
+  const s = pt(startDeg, r);
+  const e = pt(startDeg + clipped, r);
+  const large = clipped > 180 ? 1 : 0;
+  return `M ${s.x.toFixed(2)} ${s.y.toFixed(
+    2,
+  )} A ${r} ${r} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
+}
+
+// ─── Zone definitions ─────────────────────────────────────────────────────────
+// This protocol's two-segment interest-rate curve keeps ≤95 % utilisation safe.
+// Zone labels reflect that reality, not legacy 80 %-cap conventions.
+export const ZONES = [
+  {
+    from: 0,
+    to: 60,
+    color: "#475569",
+    label: "Idle",
+    sub: "0 – 60 %",
+    tip: "Capital underdeployed",
+    desc: "Low demand. Capital sits unused in the vault.",
+  },
+  {
+    from: 60,
+    to: 85,
+    color: "#38bdf8",
+    label: "Efficient",
+    sub: "60 – 85 %",
+    tip: "Good utilisation",
+    desc: "Healthy activity. Rates begin rising to attract more liquidity.",
+  },
+  {
+    from: 85,
+    to: 95,
+    color: "#34d399",
+    label: "Optimal",
+    sub: "85 – 95 %",
+    tip: "Curve-safe peak zone",
+    desc: "Target zone. The curve keeps rates stable and economics balanced.",
+  },
+  {
+    from: 95,
+    to: 100,
+    color: "#f59e0b",
+    label: "Near Max",
+    sub: "95 – 100 %",
+    tip: "High rate pressure",
+    desc: "Rate spikes sharply — incentivising new supply or repayments.",
+  },
+] as const;
+
+export type Zone = (typeof ZONES)[number];
+
+function zoneForPct(pct: number): Zone {
+  return ([...ZONES].reverse().find((z) => pct >= z.from) ?? ZONES[0]) as Zone;
+}
+
 export function UtilizationGauge({
   utilization,
   totalSupplied,
   totalBorrowed,
 }: UtilizationGaugeProps) {
   const pct = Math.min(100, Math.max(0, utilization));
-  const color = pct < 60 ? "#34d399" : pct < 80 ? "#f0a854" : "#d45677";
-  const label = pct < 60 ? "Healthy" : pct < 80 ? "Elevated" : "High";
+  const zone = zoneForPct(pct);
   const available = Math.max(0, totalSupplied - totalBorrowed);
+  const fillSweep = (pct / 100) * ARC_SWEEP;
+  const tipPoint = pt(ARC_START + fillSweep);
 
   return (
     <div className="rounded-2xl border border-[#c698e5]/15 bg-[#c698e5]/[0.03] px-6 py-5">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between mb-1">
         <div>
-          <p className="text-sm font-semibold text-[#efe0f7]">Utilization</p>
+          <p className="text-sm font-semibold text-[#efe0f7]">
+            Pool Utilization
+          </p>
           <p className="text-[11px] text-[#efe0f7]/35 mt-0.5">
-            Supply vs borrow ratio
+            Curve-optimized capital efficiency
           </p>
         </div>
         <span
-          className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full border"
+          className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full border transition-colors duration-500"
           style={{
-            color,
-            borderColor: color + "35",
-            backgroundColor: color + "12",
+            color: zone.color,
+            borderColor: zone.color + "40",
+            backgroundColor: zone.color + "14",
           }}
         >
           <span
-            className="h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: color }}
+            className="h-1.5 w-1.5 rounded-full animate-pulse"
+            style={{ backgroundColor: zone.color }}
           />
-          {label}
+          {zone.label}
         </span>
       </div>
 
-      {/* Big percentage + bar */}
-      <div className="flex items-end gap-4 mb-4">
-        <span
-          className="text-4xl font-bold tabular-nums leading-none"
-          style={{ color }}
+      {/* ── Arc Gauge (SVG) ─────────────────────────────────────────────────── */}
+      <div className="flex justify-center">
+        <svg
+          width="280"
+          height="250"
+          viewBox="0 0 280 250"
+          aria-label={`Utilization gauge: ${pct.toFixed(1)}%`}
         >
-          {pct.toFixed(1)}%
-        </span>
-        <span className="text-[11px] text-[#efe0f7]/30 mb-1 leading-none">
-          utilization rate
-        </span>
+          <defs>
+            {/* Glow filter for the active fill arc */}
+            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          {/* Background track */}
+          <path
+            d={arcPath(ARC_START, ARC_SWEEP)}
+            fill="none"
+            stroke="#c698e5"
+            strokeOpacity={0.08}
+            strokeWidth={STW}
+            strokeLinecap="round"
+          />
+
+          {/* Zone tint segments */}
+          {ZONES.map((z) => {
+            const zStart = ARC_START + (z.from / 100) * ARC_SWEEP;
+            const zSweep = ((z.to - z.from) / 100) * ARC_SWEEP;
+            return (
+              <path
+                key={z.label}
+                d={arcPath(zStart, zSweep)}
+                fill="none"
+                stroke={z.color}
+                strokeOpacity={0.15}
+                strokeWidth={STW}
+              />
+            );
+          })}
+
+          {/* Active fill arc */}
+          {pct > 0 && (
+            <path
+              d={arcPath(ARC_START, fillSweep)}
+              fill="none"
+              stroke={zone.color}
+              strokeWidth={STW}
+              strokeLinecap="round"
+              filter="url(#glow)"
+            />
+          )}
+
+          {/* Zone divider ticks at 60 %, 85 %, 95 % */}
+          {([60, 85, 95] as const).map((threshold) => {
+            const tickDeg = ARC_START + (threshold / 100) * ARC_SWEEP;
+            const inner = pt(tickDeg, GR - STW / 2 - 3);
+            const outer = pt(tickDeg, GR + STW / 2 + 3);
+            return (
+              <line
+                key={threshold}
+                x1={inner.x}
+                y1={inner.y}
+                x2={outer.x}
+                y2={outer.y}
+                stroke="#1a0d24"
+                strokeWidth={2.5}
+              />
+            );
+          })}
+
+          {/* Tip dot */}
+          {pct > 0 && pct < 100 && (
+            <circle
+              cx={tipPoint.x}
+              cy={tipPoint.y}
+              r={5}
+              fill={zone.color}
+              filter="url(#glow)"
+            />
+          )}
+
+          {/* ── Outer threshold labels ── */}
+          {(() => {
+            const labels: Array<{
+              pct: number;
+              color: string;
+              anchor: "start" | "middle" | "end";
+            }> = [
+              { pct: 0, color: "#efe0f7", anchor: "middle" },
+              { pct: 60, color: "#38bdf8", anchor: "middle" },
+              { pct: 85, color: "#34d399", anchor: "middle" },
+              { pct: 95, color: "#f59e0b", anchor: "middle" },
+              { pct: 100, color: "#efe0f7", anchor: "middle" },
+            ];
+            return labels.map(({ pct: lp, color, anchor }) => {
+              const pos = pt(
+                ARC_START + (lp / 100) * ARC_SWEEP,
+                GR + STW / 2 + 14,
+              );
+              return (
+                <text
+                  key={lp}
+                  x={pos.x}
+                  y={pos.y}
+                  textAnchor={anchor}
+                  dominantBaseline="middle"
+                  fill={color}
+                  fillOpacity={0.55}
+                  fontSize={9}
+                  fontWeight={600}
+                  fontFamily="monospace"
+                >
+                  {lp === 0 ? "0%" : lp === 100 ? "100%" : `${lp}%`}
+                </text>
+              );
+            });
+          })()}
+
+          {/* ── Centre readout ── */}
+          <text
+            x={GCX}
+            y={GCY - 14}
+            textAnchor="middle"
+            fill={zone.color}
+            fontSize={38}
+            fontWeight={700}
+            fontFamily="'Courier New', monospace"
+          >
+            {pct.toFixed(1)}%
+          </text>
+          <text
+            x={GCX}
+            y={GCY + 16}
+            textAnchor="middle"
+            fill={zone.color}
+            fillOpacity={0.65}
+            fontSize={11}
+            fontWeight={600}
+            letterSpacing={1}
+          >
+            {zone.sub}
+          </text>
+          <text
+            x={GCX}
+            y={GCY + 34}
+            textAnchor="middle"
+            fill="#efe0f7"
+            fillOpacity={0.3}
+            fontSize={9.5}
+          >
+            {zone.tip}
+          </text>
+        </svg>
       </div>
 
-      {/* Segmented horizontal bar */}
-      <div className="relative h-3 rounded-full overflow-hidden bg-[#c698e5]/8 mb-1">
-        {/* Zone tint layers */}
-        <div
-          className="absolute inset-y-0 left-0 rounded-full"
-          style={{ width: "60%", backgroundColor: "rgba(52,211,153,0.10)" }}
-        />
-        <div
-          className="absolute inset-y-0 rounded-full"
-          style={{
-            left: "60%",
-            width: "20%",
-            backgroundColor: "rgba(240,168,84,0.10)",
-          }}
-        />
-        <div
-          className="absolute inset-y-0 rounded-full"
-          style={{
-            left: "80%",
-            width: "20%",
-            backgroundColor: "rgba(212,86,119,0.10)",
-          }}
-        />
-        {/* Fill */}
-        <div
-          className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
-          style={{
-            width: `${pct}%`,
-            background:
-              pct < 60
-                ? "linear-gradient(to right, rgba(52,211,153,0.5), #34d399)"
-                : pct < 80
-                  ? "linear-gradient(to right, rgba(52,211,153,0.5), #f0a854)"
-                  : "linear-gradient(to right, rgba(52,211,153,0.5), #f0a854, #d45677)",
-          }}
-        />
-        {/* Zone dividers */}
-        <div
-          className="absolute inset-y-0 w-px bg-[#1a0d24]/60"
-          style={{ left: "60%" }}
-        />
-        <div
-          className="absolute inset-y-0 w-px bg-[#1a0d24]/60"
-          style={{ left: "80%" }}
-        />
+      {/* ── Zone legend ─────────────────────────────────────────────────────── */}
+      <div className="flex justify-center gap-4 mb-4">
+        {ZONES.map((z) => (
+          <div key={z.label} className="flex items-center gap-1.5">
+            <span
+              className="h-2 w-2 rounded-full flex-shrink-0"
+              style={{ backgroundColor: z.color }}
+            />
+            <span
+              className="text-[9px] font-semibold uppercase tracking-wide"
+              style={{ color: zone.label === z.label ? z.color : "#efe0f740" }}
+            >
+              {z.label}
+            </span>
+          </div>
+        ))}
       </div>
 
-      {/* Zone labels */}
-      <div className="flex text-[9px] text-[#efe0f7]/25 font-medium mb-5">
-        <span style={{ width: "60%" }}>0 – 60%</span>
-        <span style={{ width: "20%" }} className="text-center">
-          60 – 80%
-        </span>
-        <span style={{ width: "20%" }} className="text-right">
-          80 – 100%
-        </span>
-      </div>
-
-      {/* Metrics strip */}
+      {/* ── Metrics strip ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-2 border-t border-[#c698e5]/10 pt-4">
         <div className="flex flex-col gap-1">
           <span className="text-[9px] font-semibold uppercase tracking-wider text-[#efe0f7]/30">
@@ -129,18 +311,18 @@ export function UtilizationGauge({
 
         <div className="flex flex-col gap-1 items-center">
           <span className="text-[9px] font-semibold uppercase tracking-wider text-[#efe0f7]/30">
-            Total Borrowed
+            Borrowed
           </span>
           <span
             className="text-sm font-semibold tabular-nums"
-            style={{ color }}
+            style={{ color: zone.color }}
           >
             {formatRawTokens(totalBorrowed)}
           </span>
           <div className="h-0.5 rounded-full bg-[#c698e5]/10 mt-0.5 w-full overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-700"
-              style={{ width: `${pct}%`, backgroundColor: color }}
+              style={{ width: `${pct}%`, backgroundColor: zone.color }}
             />
           </div>
         </div>
@@ -158,6 +340,73 @@ export function UtilizationGauge({
               style={{ width: `${100 - pct}%` }}
             />
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Side-panel companion component ──────────────────────────────────────────
+export function UtilizationInfoPanel() {
+  return (
+    <div className="rounded-2xl border border-[#34d399]/18 bg-[#34d399]/[0.03] px-5 py-8 flex flex-col gap-5 h-full">
+      {/* Title */}
+      <div>
+        <div className="flex items-center gap-2 mb-2.5">
+          <div className="h-6 w-6 rounded-lg bg-[#34d399]/15 flex items-center justify-center flex-shrink-0">
+            <svg
+              className="h-3.5 w-3.5 text-[#34d399]"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+            >
+              <path d="M2 12 L5 8 L8 10 L11 5 L14 3" />
+            </svg>
+          </div>
+          <p className="text-sm font-semibold text-[#efe0f7]">
+            Curve-Optimized
+          </p>
+        </div>
+        <p className="text-[11px] text-[#efe0f7]/50 leading-relaxed">
+          This pool's two-segment interest-rate curve dynamically adjusts
+          borrowing costs — enabling{" "}
+          <span className="text-[#34d399] font-semibold">up to 95 %</span> safe
+          utilization versus the ~80 % ceiling of traditional protocols.
+        </p>
+      </div>
+
+      {/* Zone breakdown */}
+      <div>
+        <p className="text-[9px] font-semibold uppercase tracking-wider text-[#efe0f7]/25 mb-3">
+          Rate zones
+        </p>
+        <div className="space-y-3">
+          {ZONES.map((z) => (
+            <div key={z.label} className="flex items-start gap-2.5">
+              <div
+                className="mt-0.5 h-2 w-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: z.color }}
+              />
+              <div>
+                <div className="flex items-baseline gap-1.5">
+                  <span
+                    className="text-[10px] font-bold uppercase tracking-wide"
+                    style={{ color: z.color }}
+                  >
+                    {z.label}
+                  </span>
+                  <span className="text-[9px] text-[#efe0f7]/30 font-medium">
+                    {z.sub}
+                  </span>
+                </div>
+                <p className="text-[10px] text-[#efe0f7]/45 leading-snug mt-0.5">
+                  {z.desc}
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

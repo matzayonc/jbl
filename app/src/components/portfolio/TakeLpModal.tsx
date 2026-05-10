@@ -3,7 +3,6 @@ import { useMintDecimals } from "@/hooks/useMintDecimals";
 import { cn } from "@/lib/utils";
 import type { PoolData } from "@/types/lending";
 import type { Pool } from "@/types/pool";
-import { BN } from "@anchor-lang/core";
 import { useWalletConnection } from "@solana/react-hooks";
 import { Layers, Loader2, X } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -20,12 +19,7 @@ interface TakeLpModalProps {
   onClose: () => void;
 }
 
-export function TakeLpModal({
-  pool,
-  poolData,
-  position,
-  onClose,
-}: TakeLpModalProps) {
+export function TakeLpModal({ poolData, position, onClose }: TakeLpModalProps) {
   const [amount, setAmount] = useState("");
   const { wallet } = useWalletConnection();
 
@@ -49,7 +43,7 @@ export function TakeLpModal({
     const numAmount = parseFloat(amount);
     if (!numAmount || numAmount <= 0 || !wallet) return;
 
-    const rawAmount = new BN(Math.floor(numAmount * 10 ** decimals));
+    // const rawAmount = new BN(Math.floor(numAmount * 10 ** decimals));
     // await takeLpMutation.mutateAsync({
     //   pool: poolData.publicKey,
     //   amount: rawAmount,
@@ -116,13 +110,6 @@ export function TakeLpModal({
             </div>
 
             <div className="flex items-center gap-2.5 rounded-xl border border-[#c698e5]/15 bg-[#c698e5]/5 px-3.5 py-3 transition-colors focus-within:border-[#c698e5]/40">
-              <img
-                src={pool.icon}
-                alt="LP"
-                width={20}
-                height={20}
-                className="h-5 w-5 rounded-full flex-shrink-0"
-              />
               <input
                 type="number"
                 min="0"
