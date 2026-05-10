@@ -89,9 +89,10 @@ export function poolDataToDisplayPool(pd: PoolData): Pool {
     return {
         id: addr,
         address: addr,
-        name: "USD Coin",
-        symbol: "USDC",
-        icon: FALLBACK_ICON,
+        // Primary identity = lend token (the asset lenders supply / borrowers receive)
+        name: "Tether USD",
+        symbol: "USDT",
+        icon: FALLBACK_ICON_2,
         collateralSymbol: "USDC",
         collateralIcon: FALLBACK_ICON,
         lendSymbol: "USDT",

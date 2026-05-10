@@ -3,7 +3,10 @@ import { BorrowModal } from "@/components/pool/BorrowModal";
 import { DepositModal } from "@/components/pool/DepositModal";
 import { ParticipateModal } from "@/components/pool/ParticipateModal";
 import { PoolHero, PoolStatsBar } from "@/components/pool/PoolHero";
-import { UtilizationGauge } from "@/components/pool/UtilizationGauge";
+import {
+  UtilizationGauge,
+  UtilizationInfoPanel,
+} from "@/components/pool/UtilizationGauge";
 import { BorrowApyChart } from "@/components/pool/charts/BorrowApyChart";
 import { SupplyApyChart } from "@/components/pool/charts/SupplyApyChart";
 import { TotalBorrowChart } from "@/components/pool/charts/TotalBorrowChart";
@@ -138,12 +141,17 @@ export function PoolDetailPage() {
           <SupplyApyChart supplyApy={pool.supplyAPY} seed={chartSeed} />
         </div>
 
-        <div className="mt-6">
-          <UtilizationGauge
-            utilization={pool.utilization}
-            totalSupplied={pool.totalSupplied}
-            totalBorrowed={pool.totalBorrowed}
-          />
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+          <div className="lg:col-span-3">
+            <UtilizationGauge
+              utilization={pool.utilization}
+              totalSupplied={pool.totalSupplied}
+              totalBorrowed={pool.totalBorrowed}
+            />
+          </div>
+          <div className="lg:col-span-1 h-full">
+            <UtilizationInfoPanel />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">

@@ -128,12 +128,12 @@ function BorrowRow({
       {/* Borrowed asset (primary) */}
       <div className="flex items-center gap-2 min-w-[90px]">
         <img
-          src={pos.collateralIcon}
-          alt={pos.collateralAsset}
+          src={pos.borrowedIcon}
+          alt={pos.borrowedAsset}
           className="h-6 w-6 rounded-full"
         />
         <p className="text-sm font-semibold text-[#efe0f7]">
-          {pos.collateralAsset}
+          {pos.borrowedAsset}
         </p>
       </div>
 

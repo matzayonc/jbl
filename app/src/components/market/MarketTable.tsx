@@ -121,6 +121,21 @@ export function MarketTable({
                   >
                     {pool.category}
                   </span>
+                  {/* Collateral badge */}
+                  {pool.collateralSymbol && (
+                    <span className="inline-flex items-center gap-1 text-[9px] text-[#efe0f7]/28 px-1.5 py-px rounded border border-[#efe0f7]/8 bg-[#efe0f7]/4">
+                      {pool.collateralIcon && (
+                        <img
+                          src={pool.collateralIcon}
+                          alt={pool.collateralSymbol}
+                          width={10}
+                          height={10}
+                          className="h-2.5 w-2.5 rounded-full object-contain"
+                        />
+                      )}
+                      {pool.collateralSymbol}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

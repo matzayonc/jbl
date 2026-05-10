@@ -102,13 +102,6 @@ export function PutLpModal({ pool, poolData, onClose }: PutLpModalProps) {
             </div>
 
             <div className="flex items-center gap-2.5 rounded-xl border border-[#c698e5]/15 bg-[#c698e5]/5 px-3.5 py-3 transition-colors focus-within:border-[#c698e5]/40">
-              <img
-                src={pool.icon}
-                alt="LP"
-                width={20}
-                height={20}
-                className="h-5 w-5 rounded-full flex-shrink-0"
-              />
               <input
                 type="number"
                 min="0"
