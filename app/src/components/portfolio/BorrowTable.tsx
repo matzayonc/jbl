@@ -63,12 +63,8 @@ export function BorrowTable() {
                       </span>
                     </div>
                   </td>
-                  <td
-                    className={
-                      TD + " text-right tabular-nums font-medium text-[#d45677]"
-                    }
-                  >
-                    −${pos.debtAmount.toLocaleString()}
+                  <td className={TD + " text-right tabular-nums font-medium"}>
+                    ${pos.debtAmount.toLocaleString()}
                   </td>
                   <td
                     className={
