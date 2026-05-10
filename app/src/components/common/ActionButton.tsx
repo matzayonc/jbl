@@ -5,6 +5,7 @@ interface ActionButtonProps {
   icon: React.ReactNode;
   variant: "primary" | "secondary";
   disabled?: boolean;
+  compact?: boolean;
   onClick?: () => void;
 }
 
@@ -13,6 +14,7 @@ export function ActionButton({
   icon,
   variant,
   disabled,
+  compact,
   onClick,
 }: ActionButtonProps) {
   return (
@@ -21,7 +23,8 @@ export function ActionButton({
       disabled={disabled}
       title={disabled ? "Connect wallet to continue" : undefined}
       className={cn(
-        "flex items-center gap-1.5 rounded-xl pl-1.5 pr-4 py-1.5 text-sm font-medium transition-all duration-200",
+        "flex items-center gap-1.5 rounded-xl pl-1.5 py-1.5 font-medium transition-all duration-200",
+        compact ? "text-xs pr-3" : "text-sm pr-4",
         "enabled:active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
         !disabled && "cursor-pointer",
         variant === "primary"
@@ -31,7 +34,7 @@ export function ActionButton({
     >
       <span
         className={cn(
-          "flex h-7 w-7 items-center justify-center rounded-lg",
+          "flex items-center justify-center rounded-lg h-6 w-6",
           variant === "primary" ? "bg-[#17081f]/15" : "bg-[#c698e5]/15",
         )}
       >

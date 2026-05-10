@@ -22,7 +22,9 @@ const CATEGORY_BADGE: Record<Category, { label: string; classes: string }> = {
 interface PoolHeroProps {
   pool: Pool;
   isWalletConnected: boolean;
+  hasWithdrawPosition: boolean;
   onDeposit: () => void;
+  onWithdraw: () => void;
   onBorrow: () => void;
   onLend: () => void;
 }
@@ -30,7 +32,9 @@ interface PoolHeroProps {
 export function PoolHero({
   pool,
   isWalletConnected,
+  hasWithdrawPosition,
   onDeposit,
+  onWithdraw,
   onBorrow,
   onLend,
 }: PoolHeroProps) {
@@ -94,11 +98,20 @@ export function PoolHero({
 
       <div className="flex flex-wrap items-center gap-2">
         <ActionButton
-          label="Deposit"
+          label="Deposit Collateral"
           variant="primary"
+          compact
           disabled={!isWalletConnected}
           onClick={onDeposit}
-          icon={<TrendingUp className="h-4 w-4 text-[#17081f]" />}
+          icon={<TrendingUp className="h-3.5 w-3.5 text-[#17081f]" />}
+        />
+        <ActionButton
+          label="Withdraw Collateral"
+          variant="secondary"
+          compact
+          disabled={!isWalletConnected || !hasWithdrawPosition}
+          onClick={onWithdraw}
+          icon={<TrendingDown className="h-3.5 w-3.5 text-[#c698e5]" />}
         />
         <ActionButton
           label="Lend"
