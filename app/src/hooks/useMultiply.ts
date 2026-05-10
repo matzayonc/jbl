@@ -1,25 +1,61 @@
-import {
-    fetchMultiplyStrategies,
-    fetchMultiplyStrategyById,
-} from "@/api/multiply.api";
-import { useQuery } from "@tanstack/react-query";
+import { useLendingAccounts } from "@/hooks/program/useLendingAccounts";
+import { poolDataToDisplayPool } from "@/lib/poolDisplay";
+import type { MultiplyMeta, Pool } from "@/types/pool";
+import { useMemo } from "react";
 
-export const multiplyKeys = {
-  all: ["multiply"] as const,
-  byId: (id: string) => ["multiply", id] as const,
-};
+export const MAX_MULTIPLY = 30;
 
+export interface MultiplyStrategy extends Pool {
+  meta: MultiplyMeta;
+}
+
+/**
+ * Derives a MultiplyMeta from an already-mapped Pool.
+ * Max multiplier is hardcoded at 30×.
+ * Max net APY is computed at full leverage: L×supplyAPY − (L−1)×borrowAPY.
+ */
+export function buildMultiplyMeta(pool: Pool): MultiplyMeta {
+  const maxNetAPY = Math.max(
+    0,
+    MAX_MULTIPLY * pool.supplyAPY - (MAX_MULTIPLY - 1) * pool.borrowAPY,
+  );
+  return {
+    maxMultiplier: MAX_MULTIPLY,
+    maxNetAPY,
+    // Lend token is the debt in a multiply position (borrowed against collateral)
+    debtSymbol: pool.lendSymbol,
+    debtIcon: pool.lendIcon,
+  };
+}
+
+/** Returns all on-chain pools as multiply strategies (one strategy per pool). */
 export function useMultiplyStrategies() {
-  return useQuery({
-    queryKey: multiplyKeys.all,
-    queryFn: fetchMultiplyStrategies,
-  });
+  const { data: poolsData = [], isLoading, error } = useLendingAccounts();
+
+  const strategies = useMemo<MultiplyStrategy[]>(
+    () =>
+      poolsData.map((pd) => {
+        const pool = poolDataToDisplayPool(pd);
+        return { ...pool, meta: buildMultiplyMeta(pool) };
+      }),
+    [poolsData],
+  );
+
+  return { data: strategies, isLoading, error };
 }
 
-export function useMultiplyStrategy(id: string | undefined) {
-  return useQuery({
-    queryKey: multiplyKeys.byId(id ?? ""),
-    queryFn: () => fetchMultiplyStrategyById(id!),
-    enabled: !!id,
-  });
+/** Returns a single multiply strategy by pool address. */
+export function useMultiplyStrategy(address: string | undefined) {
+  const { data: strategies, isLoading, error } = useMultiplyStrategies();
+
+  const strategy = useMemo<MultiplyStrategy | null>(
+    () =>
+      address
+        ? (strategies.find((s) => s.address === address) ?? null)
+        : null,
+    [strategies, address],
+  );
+
+  return { data: strategy, isLoading, error };
 }
+

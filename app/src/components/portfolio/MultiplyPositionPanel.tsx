@@ -1,73 +1,144 @@
-import { POOLS } from "@/lib/mocks/pools.mock";
+import { useUserPosition } from "@/hooks/program/useUserPosition";
+import { useMintDecimals } from "@/hooks/useMintDecimals";
+import type { PoolData } from "@/types/lending";
 import type { Pool } from "@/types/pool";
-import { useState } from "react";
+import { useWalletConnection } from "@solana/react-hooks";
+import { PublicKey } from "@solana/web3.js";
+import { useMemo, useState } from "react";
 import { PnlCell } from "../common/PnlCell";
 import { PositionActionButton } from "../common/PositionActionButton";
-import {
-  ClosePositionModal,
-  type CloseMultiplyPosition,
-} from "./ClosePositionModal";
+import { ClosePositionModal } from "./ClosePositionModal";
 import {
   ManagePositionModal,
   type ManageMultiplyPosition,
 } from "./ManagePositionModal";
 
-// ─── Mock position data keyed by pool.id ──────────────────────────────────────
+// ─── Leverage math ─────────────────────────────────────────────────────────────
 
-type MultiplyPos = ManageMultiplyPosition & CloseMultiplyPosition;
-
-const MOCK_MULTIPLY: Record<string, MultiplyPos> = {
-  sol: {
-    asset: "SOL",
-    icon: POOLS.find((p) => p.id === "sol")!.icon,
-    debtAsset: "USDC",
-    multiplier: 2.4,
-    netAPY: 3.1,
-    positionSize: 3_840,
-    entryPrice: 142.5,
-    currentPrice: 158.2,
-    liqPrice: 112.3,
-    pnl: 432.8,
-    pnlPct: 11.27,
-  },
-  jitosol: {
-    asset: "jitoSOL",
-    icon: POOLS.find((p) => p.id === "jitosol")!.icon,
-    debtAsset: "SOL",
-    multiplier: 3.8,
-    netAPY: 12.4,
-    positionSize: 2_210,
-    entryPrice: 176.4,
-    currentPrice: 182.1,
-    liqPrice: 138.6,
-    pnl: 122.6,
-    pnlPct: 5.55,
-  },
-};
+/**
+ * Computes effective leverage from on-chain collateral and debt.
+ * Formula: leverage = collateral / (collateral − debt × price), price = 1.
+ * Returns 1 when there is no debt.
+ */
+function computeLeverage(collateral: number, debt: number): number {
+  const equity = collateral - debt;
+  if (equity <= 0 || collateral <= 0) return 1;
+  return collateral / equity;
+}
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 type ModalState =
-  | { type: "manage"; pos: MultiplyPos }
-  | { type: "close"; pos: MultiplyPos }
+  | { type: "manage"; pos: ManageMultiplyPosition }
+  | { type: "close" }
   | null;
 
 interface MultiplyPositionPanelProps {
   pool: Pool;
+  poolData: PoolData;
   connected: boolean;
 }
 
+/**
+ * Shows the user's active multiply (leveraged) position for the given pool.
+ * A multiply position is identified by having both collateral deposited AND
+ * outstanding debt shares at the same time.
+ */
 export function MultiplyPositionPanel({
   pool,
+  poolData,
   connected,
 }: MultiplyPositionPanelProps) {
   const [modal, setModal] = useState<ModalState>(null);
+  const { wallet } = useWalletConnection();
 
-  const pos = MOCK_MULTIPLY[pool.id];
+  const poolPubKey = useMemo(() => {
+    try {
+      return new PublicKey(pool.address);
+    } catch {
+      return null;
+    }
+  }, [pool.address]);
 
-  if (!connected || !pos) return null;
+  const walletPubKey = useMemo(() => {
+    if (!wallet) return null;
+    try {
+      return new PublicKey(wallet.account.publicKey);
+    } catch {
+      return null;
+    }
+  }, [wallet]);
 
-  // const isPnlPositive = pos.pnl >= 0;
+  const { data: userPosition, isLoading } = useUserPosition(
+    poolPubKey,
+    walletPubKey,
+  );
+  const { data: collateralDecimals } = useMintDecimals(poolData.collateralMint);
+  const { data: lendDecimals } = useMintDecimals(poolData.lendMint);
+
+  // Derive human-readable amounts and position metrics
+  const position = useMemo(() => {
+    if (!userPosition) return null;
+
+    const hasCollateral = userPosition.collateralDeposited > 0n;
+    const hasDebt = userPosition.debtShares > 0n;
+
+    // A multiply position has both collateral and debt
+    if (!hasCollateral || !hasDebt) return null;
+
+    const colDec = collateralDecimals ?? 6;
+    const lndDec = lendDecimals ?? 6;
+
+    const collateralUi =
+      Number(userPosition.collateralDeposited) / 10 ** colDec;
+
+    const debtRaw =
+      poolData.totalDebtShares > 0n
+        ? (userPosition.debtShares * poolData.totalBorrowed) /
+          poolData.totalDebtShares
+        : 0n;
+    const debtUi = Number(debtRaw) / 10 ** lndDec;
+
+    const leverage = computeLeverage(collateralUi, debtUi);
+    const netAPY = Math.max(
+      0,
+      leverage * pool.supplyAPY - (leverage - 1) * pool.borrowAPY,
+    );
+
+    return {
+      collateralUi,
+      debtUi,
+      debtRaw,
+      leverage,
+      netAPY,
+    };
+  }, [userPosition, collateralDecimals, lendDecimals, poolData, pool]);
+
+  if (!connected) return null;
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-[#c698e5]/12 bg-[#c698e5]/[0.02] px-4 py-6 flex items-center gap-2">
+        <div className="h-1.5 w-1.5 rounded-full bg-[#c698e5] animate-pulse" />
+        <span className="text-[11px] text-[#efe0f7]/30">Loading position…</span>
+      </div>
+    );
+  }
+  if (!position) return null;
+
+  // Build ManageMultiplyPosition from real data (price = 1 assumed)
+  const managePos: ManageMultiplyPosition = {
+    asset: pool.collateralSymbol,
+    icon: pool.collateralIcon,
+    debtAsset: pool.lendSymbol,
+    multiplier: position.leverage,
+    netAPY: position.netAPY,
+    positionSize: position.collateralUi,
+    entryPrice: 1,
+    currentPrice: 1,
+    liqPrice: 1 / position.leverage,
+    pnl: 0,
+    pnlPct: 0,
+  };
 
   return (
     <>
@@ -85,13 +156,13 @@ export function MultiplyPositionPanel({
           {/* Asset */}
           <div className="flex items-center gap-2 min-w-[90px]">
             <img
-              src={pos.icon}
-              alt={pos.asset}
+              src={pool.lendIcon}
+              alt={pool.lendSymbol}
               className="h-6 w-6 rounded-full"
             />
             <div>
               <p className="text-sm font-semibold text-[#efe0f7]">
-                {pos.asset}
+                {pool.lendSymbol}
               </p>
               <p className="text-[10px] text-[#efe0f7]/35">Multiply</p>
             </div>
@@ -103,7 +174,7 @@ export function MultiplyPositionPanel({
               Multiplier
             </span>
             <span className="text-sm font-bold tabular-nums text-[#c698e5]">
-              {pos.multiplier.toFixed(1)}×
+              {position.leverage.toFixed(2)}×
             </span>
           </div>
 
@@ -113,53 +184,53 @@ export function MultiplyPositionPanel({
               Net APY
             </span>
             <span className="text-sm font-semibold tabular-nums text-[#34d399]">
-              {pos.netAPY.toFixed(1)}%
+              {position.netAPY.toFixed(2)}%
             </span>
           </div>
 
-          {/* Position size */}
-          <div className="flex flex-col min-w-[85px]">
+          {/* Collateral */}
+          <div className="flex flex-col min-w-[100px]">
             <span className="text-[10px] text-[#efe0f7]/35 mb-0.5">
-              Position
+              Collateral
             </span>
             <span className="text-sm font-semibold tabular-nums text-[#efe0f7]">
-              ${pos.positionSize.toLocaleString()}
+              {position.collateralUi.toLocaleString("en-US", {
+                maximumFractionDigits: 4,
+              })}{" "}
+              <span className="text-xs text-[#efe0f7]/40">
+                {pool.collateralSymbol}
+              </span>
             </span>
           </div>
 
-          {/* Entry price */}
-          <div className="flex flex-col min-w-[75px]">
-            <span className="text-[10px] text-[#efe0f7]/35 mb-0.5">Entry</span>
-            <span className="text-sm tabular-nums text-[#efe0f7]/55">
-              ${pos.entryPrice.toFixed(2)}
+          {/* Debt */}
+          <div className="flex flex-col min-w-[100px]">
+            <span className="text-[10px] text-[#efe0f7]/35 mb-0.5">Debt</span>
+            <span className="text-sm font-semibold tabular-nums text-[#efe0f7]">
+              {position.debtUi.toLocaleString("en-US", {
+                maximumFractionDigits: 4,
+              })}{" "}
+              <span className="text-xs text-[#efe0f7]/40">
+                {pool.lendSymbol}
+              </span>
             </span>
           </div>
 
-          {/* Current price */}
-          <div className="flex flex-col min-w-[75px]">
-            <span className="text-[10px] text-[#efe0f7]/35 mb-0.5">
-              Current
-            </span>
-            <span className="text-sm tabular-nums text-[#efe0f7]">
-              ${pos.currentPrice.toFixed(2)}
-            </span>
-          </div>
-
-          {/* PnL */}
+          {/* P&L — not computable without price history; shown as placeholder */}
           <div className="flex flex-col min-w-[90px]">
             <span className="text-[10px] text-[#efe0f7]/35 mb-0.5">P&L</span>
-            <PnlCell pnl={pos.pnl} pct={pos.pnlPct} />
+            <PnlCell pnl={0} pct={0} />
           </div>
 
           {/* Actions */}
           <div className="flex items-center gap-2 ml-auto">
-            <PositionActionButton
+            {/* <PositionActionButton
               label="Manage"
-              onClick={() => setModal({ type: "manage", pos })}
-            />
+              onClick={() => setModal({ type: "manage", pos: managePos })}
+            /> */}
             <PositionActionButton
               label="Close"
-              onClick={() => setModal({ type: "close", pos })}
+              onClick={() => setModal({ type: "close" })}
             />
           </div>
         </div>
@@ -171,9 +242,12 @@ export function MultiplyPositionPanel({
           onClose={() => setModal(null)}
         />
       )}
-      {modal?.type === "close" && (
+      {modal?.type === "close" && userPosition && (
         <ClosePositionModal
-          position={modal.pos}
+          pool={pool}
+          poolData={poolData}
+          userPosition={userPosition}
+          position={managePos}
           onClose={() => setModal(null)}
         />
       )}

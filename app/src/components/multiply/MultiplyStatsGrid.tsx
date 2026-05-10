@@ -1,5 +1,5 @@
+import { MAX_MULTIPLY } from "@/hooks/useMultiply";
 import { formatUSD } from "@/lib/formatters";
-import { MULTIPLY_META } from "@/lib/mocks/multiply.mock";
 import { cn } from "@/lib/utils";
 import type { Pool } from "@/types/pool";
 
@@ -34,20 +34,23 @@ interface MultiplyStatsGridProps {
 }
 
 export function MultiplyStatsGrid({ pool }: MultiplyStatsGridProps) {
-  const meta = MULTIPLY_META[pool.id];
+  const maxNetAPY = Math.max(
+    0,
+    MAX_MULTIPLY * pool.supplyAPY - (MAX_MULTIPLY - 1) * pool.borrowAPY,
+  );
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
       <StatCard
         label="Max Multiplier"
-        value={`${meta.maxMultiplier.toFixed(1)}×`}
+        value={`${MAX_MULTIPLY}×`}
         sub="leverage cap"
         accent="text-[#c698e5]"
       />
       <StatCard
         label="Max Net APY"
-        value={`${meta.maxNetAPY.toFixed(2)}%`}
-        sub={`at ${meta.maxMultiplier}× leverage`}
+        value={`${maxNetAPY.toFixed(2)}%`}
+        sub={`at ${MAX_MULTIPLY}× leverage`}
         accent="text-emerald-400"
       />
       <StatCard
@@ -58,7 +61,7 @@ export function MultiplyStatsGrid({ pool }: MultiplyStatsGridProps) {
       <StatCard
         label="Borrow APY"
         value={`${pool.borrowAPY.toFixed(2)}%`}
-        sub={`${meta.debtSymbol} debt cost`}
+        sub={`${pool.lendSymbol} debt cost`}
         accent="text-[#f0a854]"
       />
     </div>

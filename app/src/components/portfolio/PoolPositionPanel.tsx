@@ -154,8 +154,7 @@ function BorrowRow({
       {/* Debt */}
       <div className="flex flex-col min-w-[80px]">
         <span className="text-[10px] text-[#efe0f7]/35 mb-0.5">Debt</span>
-        <span className="text-sm font-semibold tabular-nums text-[#d45677]">
-          −
+        <span className="text-sm font-semibold tabular-nums text-[#efe0f7]">
           {pos.debtAmount.toLocaleString("en-US", { maximumFractionDigits: 4 })}
         </span>
       </div>
