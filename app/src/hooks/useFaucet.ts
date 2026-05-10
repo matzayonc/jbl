@@ -4,7 +4,6 @@ import {
     createAssociatedTokenAccountIdempotentInstruction,
     createMintToInstruction,
     getAssociatedTokenAddressSync,
-    getMint,
     TOKEN_PROGRAM_ID,
 } from '@solana/spl-token'
 import { Keypair, PublicKey, Transaction } from '@solana/web3.js'
