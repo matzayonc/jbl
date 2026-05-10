@@ -2,6 +2,7 @@ import { type PoolData } from "@/hooks/program/useLendingAccount";
 import { useRepay } from "@/hooks/program/useRepay";
 import { useUserPosition } from "@/hooks/program/useUserPosition";
 import { useMintDecimals } from "@/hooks/useMintDecimals";
+import { useTokenBalance } from "@/hooks/useWalletBalances";
 import { cn } from "@/lib/utils";
 import type { Pool } from "@/types/pool";
 import { BN } from "@anchor-lang/core";
@@ -243,20 +244,13 @@ export function PoolPositionPanel({
     poolPubKey,
     walletPubKey,
   );
-  const { data: collateralDecimals } = useMintDecimals(
-    poolData.collateralMint ?? null,
-  );
   const { data: lendDecimals } = useMintDecimals(poolData.lendMint ?? null);
-  // const lpWalletBalance = useTokenBalance(poolData.lpMint ?? null);
+  const lpWalletBalance = useTokenBalance(poolData.lpMint ?? null);
+  const lendWalletBalance = useTokenBalance(poolData.lendMint ?? null);
 
   const repayMutation = useRepay();
 
   // Compute on-chain amounts as human-readable numbers
-  const collateralUiAmount = useMemo(() => {
-    if (!userPosition || collateralDecimals == null) return null;
-    return Number(userPosition.collateralDeposited) / 10 ** collateralDecimals;
-  }, [userPosition, collateralDecimals]);
-
   const debtUiAmount = useMemo(() => {
     if (!userPosition || !poolData || lendDecimals == null) return null;
     if (poolData.totalDebtShares === 0n) return 0;
@@ -266,18 +260,15 @@ export function PoolPositionPanel({
     return Number(rawDebt) / 10 ** lendDecimals;
   }, [userPosition, poolData, lendDecimals]);
 
-  // Lend token info from pool prop (already resolved)
-  const hasDeposit =
-    userPosition != null && userPosition.collateralDeposited > 0n;
+  // LP wallet balance drives the Lend section (LP tokens are in user's wallet ATA)
+  const hasLp = (lpWalletBalance?.uiAmount ?? 0) > 0;
   const hasDebt = userPosition != null && userPosition.debtShares > 0n;
-  // const hasLpOwed = userPosition != null && userPosition.lpTokensOwed > 0n;
-  // const hasLpInWallet = (lpWalletBalance?.uiAmount ?? 0) > 0;
 
-  const lendPos: WithdrawPosition | null = hasDeposit
+  const lendPos: WithdrawPosition | null = hasLp
     ? {
-        asset: pool.symbol,
-        icon: pool.icon,
-        supplied: collateralUiAmount ?? 0,
+        asset: pool.lendSymbol,
+        icon: pool.lendIcon,
+        supplied: lpWalletBalance?.uiAmount ?? 0,
         apy: pool.supplyAPY,
         collateralEnabled: true,
       }
@@ -291,6 +282,7 @@ export function PoolPositionPanel({
         borrowedIcon: pool.lendIcon,
         debtAmount: debtUiAmount ?? 0,
         borrowAPY: pool.borrowAPY,
+        walletBalance: lendWalletBalance?.uiAmount ?? undefined,
       }
     : null;
 
@@ -334,8 +326,6 @@ export function PoolPositionPanel({
             <SectionLabel label="Lend" />
             <LendRow
               pos={lendPos}
-              // onClaimLp={true ? () => setModal({ type: "takeLp" }) : undefined}
-              // onPutLp={true ? () => setModal({ type: "putLp" }) : undefined}
               onRedeemLp={
                 true ? () => setModal({ type: "leaveLp" }) : undefined
               }
@@ -362,26 +352,10 @@ export function PoolPositionPanel({
           onClose={() => setModal(null)}
         />
       )}
-      {/* {modal?.type === "takeLp" && pool && poolData && userPosition && (
-        <TakeLpModal
-          pool={pool}
-          poolData={poolData}
-          position={{ lpTokensOwed: userPosition.lpTokensOwed }}
-          onClose={() => setModal(null)}
-        />
-      )}
-      {modal?.type === "putLp" && pool && poolData && (
-        <PutLpModal
-          pool={pool}
-          poolData={poolData}
-          onClose={() => setModal(null)}
-        />
-      )} */}
-      {modal?.type === "leaveLp" && pool && poolData && userPosition && (
+      {modal?.type === "leaveLp" && pool && poolData && (
         <LeaveModal
           pool={pool}
           poolData={poolData}
-          position={{ lpTokensOwed: userPosition.debtShares }}
           onClose={() => setModal(null)}
         />
       )}

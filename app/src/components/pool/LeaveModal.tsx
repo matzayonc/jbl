@@ -1,42 +1,30 @@
 import { useLeave } from "@/hooks/program/useLeave";
 import { useMintDecimals } from "@/hooks/useMintDecimals";
+import { useTokenBalance } from "@/hooks/useWalletBalances";
 import { cn } from "@/lib/utils";
 import type { PoolData } from "@/types/lending";
 import type { Pool } from "@/types/pool";
 import { BN } from "@anchor-lang/core";
 import { useWalletConnection } from "@solana/react-hooks";
 import { AlertTriangle, Info, Layers, Loader2, Wallet, X } from "lucide-react";
-import { useMemo, useState } from "react";
-
-export interface LeavePosition {
-  /** Raw `lpTokensOwed` from UserPositionData (bigint). */
-  lpTokensOwed: bigint;
-}
+import { useState } from "react";
 
 interface LeaveModalProps {
   pool: Pool;
   poolData: PoolData;
-  position: LeavePosition;
   onClose: () => void;
 }
 
-export function LeaveModal({
-  pool,
-  poolData,
-  position,
-  onClose,
-}: LeaveModalProps) {
+export function LeaveModal({ pool, poolData, onClose }: LeaveModalProps) {
   const [amount, setAmount] = useState("");
   const { wallet } = useWalletConnection();
 
   const { data: lpDecimals } = useMintDecimals(poolData.lpMint);
   const decimals = lpDecimals ?? 6;
 
-  // LP shares available in the position (not wallet)
-  const limit = useMemo(
-    () => Number(position.lpTokensOwed) / 10 ** decimals,
-    [position.lpTokensOwed, decimals],
-  );
+  // LP token wallet balance — this is what the user can redeem
+  const lpWalletBalance = useTokenBalance(poolData.lpMint);
+  const limit = lpWalletBalance?.uiAmount ?? 0;
 
   const leaveMutation = useLeave();
   const isPending = leaveMutation.isPending;
@@ -74,7 +62,7 @@ export function LeaveModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-4">
-          <p className="text-base font-semibold text-[#efe0f7]">Redeem LP</p>
+          <p className="text-base font-semibold text-[#efe0f7]">Withdraw</p>
           <button
             onClick={onClose}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-[#efe0f7]/30 hover:bg-[#c698e5]/10 hover:text-[#efe0f7] transition-colors cursor-pointer"
@@ -88,7 +76,7 @@ export function LeaveModal({
           <div className="flex items-start gap-2.5 rounded-xl border border-[#f0a854]/20 bg-[#f0a854]/8 px-3.5 py-3">
             <AlertTriangle className="h-3.5 w-3.5 text-[#f0a854] flex-shrink-0 mt-0.5" />
             <p className="text-[11px] text-[#f0a854]/80 leading-relaxed">
-              If the pool has insufficient liquidity, your redemption will be
+              If the pool has insufficient liquidity, your withdrawal will be
               queued on-chain and fulfilled when liquidity is available.
             </p>
           </div>
@@ -97,7 +85,7 @@ export function LeaveModal({
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between gap-2 px-2">
               <span className="text-[11px] text-[#efe0f7]/40 flex-shrink-0">
-                LP Shares
+                LP tokens
               </span>
               <button
                 onClick={() => setAmount(limit.toFixed(6))}
@@ -184,7 +172,7 @@ export function LeaveModal({
             )}
           >
             {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Redeem LP
+            Withdraw
           </button>
         </div>
       </div>

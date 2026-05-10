@@ -1,10 +1,8 @@
 // import { usePutLp } from "@/hooks/program/usePutLp";
-import { useMintDecimals } from "@/hooks/useMintDecimals";
 import { useTokenBalance } from "@/hooks/useWalletBalances";
 import { cn } from "@/lib/utils";
 import type { PoolData } from "@/types/lending";
 import type { Pool } from "@/types/pool";
-import { BN } from "@anchor-lang/core";
 import { useWalletConnection } from "@solana/react-hooks";
 import { Info, Layers, Loader2, Wallet, X } from "lucide-react";
 import { useState } from "react";
@@ -15,11 +13,11 @@ interface PutLpModalProps {
   onClose: () => void;
 }
 
-export function PutLpModal({ pool, poolData, onClose }: PutLpModalProps) {
+export function PutLpModal({ poolData, onClose }: PutLpModalProps) {
   const [amount, setAmount] = useState("");
   const { wallet } = useWalletConnection();
 
-  const { data: lpDecimals } = useMintDecimals(poolData.lpMint);
+  // const { data: lpDecimals } = useMintDecimals(poolData.lpMint);
   const lpBalance = useTokenBalance(poolData.lpMint);
 
   // const putLpMutation = usePutLp();
@@ -27,7 +25,7 @@ export function PutLpModal({ pool, poolData, onClose }: PutLpModalProps) {
   const isPending = false;
 
   const limit = lpBalance?.uiAmount ?? 0;
-  const decimals = lpDecimals ?? 6;
+  // const decimals = lpDecimals ?? 6;
 
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose();
@@ -37,7 +35,7 @@ export function PutLpModal({ pool, poolData, onClose }: PutLpModalProps) {
     const numAmount = parseFloat(amount);
     if (!numAmount || numAmount <= 0 || !wallet) return;
 
-    const rawAmount = new BN(Math.floor(numAmount * 10 ** decimals));
+    // const rawAmount = new BN(Math.floor(numAmount * 10 ** decimals));
     // await putLpMutation.mutateAsync({
     //   pool: poolData.publicKey,
     //   amount: rawAmount,

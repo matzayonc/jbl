@@ -3,7 +3,6 @@ import { useMintDecimals } from "@/hooks/useMintDecimals";
 import { cn } from "@/lib/utils";
 import type { PoolData } from "@/types/lending";
 import type { Pool } from "@/types/pool";
-import { BN } from "@anchor-lang/core";
 import { useWalletConnection } from "@solana/react-hooks";
 import { Layers, Loader2, X } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -20,12 +19,7 @@ interface TakeLpModalProps {
   onClose: () => void;
 }
 
-export function TakeLpModal({
-  pool,
-  poolData,
-  position,
-  onClose,
-}: TakeLpModalProps) {
+export function TakeLpModal({ poolData, position, onClose }: TakeLpModalProps) {
   const [amount, setAmount] = useState("");
   const { wallet } = useWalletConnection();
 
@@ -49,7 +43,7 @@ export function TakeLpModal({
     const numAmount = parseFloat(amount);
     if (!numAmount || numAmount <= 0 || !wallet) return;
 
-    const rawAmount = new BN(Math.floor(numAmount * 10 ** decimals));
+    // const rawAmount = new BN(Math.floor(numAmount * 10 ** decimals));
     // await takeLpMutation.mutateAsync({
     //   pool: poolData.publicKey,
     //   amount: rawAmount,
