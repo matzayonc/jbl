@@ -7,13 +7,13 @@ export function MultiplyPage() {
   const { data: strategies = [], isLoading } = useMultiplyStrategies();
   const [search, setSearch] = useState("");
 
-  const pools = useMemo(() => {
+  const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return strategies
       .filter(
         (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.symbol.toLowerCase().includes(q),
+          s.collateralSymbol.toLowerCase().includes(q) ||
+          s.lendSymbol.toLowerCase().includes(q),
       )
       .sort((a, b) => b.meta.maxNetAPY - a.meta.maxNetAPY);
   }, [strategies, search]);
@@ -51,7 +51,7 @@ export function MultiplyPage() {
           Loading strategies…
         </div>
       ) : (
-        <MultiplyTable pools={pools} />
+        <MultiplyTable strategies={filtered} />
       )}
     </div>
   );

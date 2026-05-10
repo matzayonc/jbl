@@ -99,7 +99,7 @@ interface Props {
 }
 
 export function MultiplyAnalyticsCharts({ pool, seed }: Props) {
-  const meta = MULTIPLY_META[pool.id];
+  const meta = MULTIPLY_META["usdc"];
 
   const multiplierLevels = useMemo(
     () =>

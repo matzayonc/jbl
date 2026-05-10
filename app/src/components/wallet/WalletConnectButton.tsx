@@ -32,7 +32,7 @@ export function WalletConnectButton() {
         <button
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
-          onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
+          // onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
           className={cn(
             "flex items-center cursor-pointer gap-2 rounded-xl border border-[#c698e5]/25 bg-[#c698e5]/10 px-3 py-2",
             "text-xs font-medium text-[#efe0f7] transition-all",

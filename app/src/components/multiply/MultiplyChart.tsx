@@ -94,7 +94,7 @@ interface MultiplyChartProps {
 }
 
 export function MultiplyChart({ pool, seed }: MultiplyChartProps) {
-  const meta = MULTIPLY_META[pool.id];
+  const meta = MULTIPLY_META["usdc"];
   const [tab, setTab] = useState<ChartTab>("price");
   const [priceRange, setPriceRange] = useState<PriceRange>(90);
   const chartRef = useRef<HTMLDivElement>(null);
