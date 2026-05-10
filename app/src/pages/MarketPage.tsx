@@ -8,20 +8,63 @@ import { useLendingAccounts } from "@/hooks/program/useLendingAccounts";
 import { poolDataToDisplayPool } from "@/lib/poolDisplay";
 import type { Category, Pool } from "@/types/pool";
 import { BarChart3 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { getMint } from "@solana/spl-token";
+import { connection } from "@/lib/program";
+
+// Hardcoded minter pubkey - must match useFaucet.ts
+const MINTER_PUBKEY = "GqWFPtJTX4jVAQxX17vMbzwtY97PsZk7gaEtVuMjtk6D";
+
+async function checkPoolHasValidMinter(pool: { collateralMint: { toBase58: () => string }; lendMint: { toBase58: () => string } }): Promise<boolean> {
+  try {
+    const [collateralInfo, lendInfo] = await Promise.all([
+      getMint(connection, pool.collateralMint as any),
+      getMint(connection, pool.lendMint as any),
+    ]);
+    const collateralValid = collateralInfo.mintAuthority?.toBase58() === MINTER_PUBKEY;
+    const lendValid = lendInfo.mintAuthority?.toBase58() === MINTER_PUBKEY;
+    return collateralValid && lendValid;
+  } catch {
+    return false;
+  }
+}
 
 export function MarketPage() {
-  const { data: lendingAccounts = [], isLoading } = useLendingAccounts();
+  const { data: lendingAccounts = [], isLoading: isLoadingPools } = useLendingAccounts();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<"all" | Category>("all");
   const [sortKey, setSortKey] = useState<SortKey>("totalSupplied");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [validPoolIds, setValidPoolIds] = useState<Set<string>>(new Set());
+  const [isCheckingMints, setIsCheckingMints] = useState(false);
 
-  console.log("Lending accounts:", lendingAccounts);
+  // Check which pools have valid minter
+  useEffect(() => {
+    if (lendingAccounts.length === 0) {
+      setValidPoolIds(new Set());
+      return;
+    }
+    
+    setIsCheckingMints(true);
+    Promise.all(
+      lendingAccounts.map(async (pool) => {
+        const isValid = await checkPoolHasValidMinter(pool);
+        return { id: pool.publicKey.toBase58(), isValid };
+      })
+    ).then(results => {
+      const validIds = new Set(results.filter(r => r.isValid).map(r => r.id));
+      setValidPoolIds(validIds);
+      setIsCheckingMints(false);
+    });
+  }, [lendingAccounts]);
+
+  const isLoading = isLoadingPools || isCheckingMints;
 
   const allPools = useMemo<Pool[]>(
-    () => lendingAccounts.map(poolDataToDisplayPool),
-    [lendingAccounts],
+    () => lendingAccounts
+      .filter(pool => validPoolIds.has(pool.publicKey.toBase58()))
+      .map(poolDataToDisplayPool),
+    [lendingAccounts, validPoolIds],
   );
 
   function handleSort(key: SortKey) {

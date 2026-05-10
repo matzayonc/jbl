@@ -55,7 +55,10 @@ export function WalletConnectButton() {
 
         {/* Dropdown */}
         {menuOpen && (
-          <div className="absolute right-0 mt-2 w-44 rounded-xl border border-[#c698e5]/15 bg-[#1f0e2b] p-1 shadow-2xl z-40">
+          <div
+            className="absolute right-0 mt-2 w-44 rounded-xl border border-[#c698e5]/15 bg-[#1f0e2b] p-1 shadow-2xl z-40"
+            onMouseDown={(e) => e.preventDefault()} // Prevent blur from closing dropdown
+          >
             <div className="px-3 py-2 mb-1 border-b border-[#c698e5]/10">
               <p className="text-[10px] uppercase tracking-widest text-[#efe0f7]/30">
                 Connected
