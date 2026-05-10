@@ -5,8 +5,11 @@ use anchor_spl::token::{Mint, Token, TokenAccount};
 
 #[derive(Accounts)]
 pub struct MockSwap<'info> {
-    /// The authority over both mints — must sign.
+    /// The authority over both mints — must sign to burn/mint.
     pub mint_authority: Signer<'info>,
+
+    /// The owner of the token accounts — must sign to authorize burning from their account.
+    pub token_owner: Signer<'info>,
 
     /// The mint to burn from. Caller must be its mint authority.
     #[account(
@@ -25,7 +28,7 @@ pub struct MockSwap<'info> {
     /// The caller's token account to burn from.
     #[account(
         mut,
-        constraint = user_token_in.owner == mint_authority.key() @ ErrorCode::Unauthorized,
+        constraint = user_token_in.owner == token_owner.key() @ ErrorCode::Unauthorized,
         constraint = user_token_in.mint == mint_in.key() @ ErrorCode::InvalidMint,
     )]
     pub user_token_in: Account<'info, TokenAccount>,
@@ -33,7 +36,7 @@ pub struct MockSwap<'info> {
     /// The caller's token account to receive minted tokens.
     #[account(
         mut,
-        constraint = user_token_out.owner == mint_authority.key() @ ErrorCode::Unauthorized,
+        constraint = user_token_out.owner == token_owner.key() @ ErrorCode::Unauthorized,
         constraint = user_token_out.mint == mint_out.key() @ ErrorCode::InvalidMint,
     )]
     pub user_token_out: Account<'info, TokenAccount>,
@@ -56,7 +59,7 @@ pub fn mock_swap_handler(ctx: Context<MockSwap>, amount: u64) -> Result<()> {
             anchor_spl::token::Burn {
                 mint: ctx.accounts.mint_in.to_account_info(),
                 from: ctx.accounts.user_token_in.to_account_info(),
-                authority: ctx.accounts.mint_authority.to_account_info(),
+                authority: ctx.accounts.token_owner.to_account_info(),
             },
         ),
         amount,

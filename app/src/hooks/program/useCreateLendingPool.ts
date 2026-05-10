@@ -7,15 +7,12 @@ import {
     TOKEN_PROGRAM_ID,
 } from '@solana/spl-token'
 import { Keypair, PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
-
-// Hardcoded minter for faucet - must match useFaucet.ts
-const MINTER_SECRET_KEY = new Uint8Array([164,83,220,177,59,188,88,49,200,58,85,66,67,49,29,78,136,239,249,139,109,48,103,122,207,63,58,166,208,94,29,195,235,76,64,246,35,186,222,243,110,94,56,145,95,144,26,200,237,159,61,219,114,138,224,39,254,99,89,216,19,83,205,82])
-const MINTER_KEYPAIR = Keypair.fromSecretKey(MINTER_SECRET_KEY)
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { connection, program as readonlyProgram } from '../../lib/program'
 import { queryKeys } from '../../lib/queryKeys'
 import { signAndSendV1 } from '../../lib/transactions'
 import { handleTransaction } from '../../lib/txHandler'
+import { MINTER_KEYPAIR } from '../../store/wallet.store'
 
 /** Decimal precision for auto-generated mints. */
 const MINT_DECIMALS = 6

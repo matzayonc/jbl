@@ -6,9 +6,7 @@ import { Droplets, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getMint } from "@solana/spl-token";
 import { connection } from "@/lib/program";
-
-// Same minter pubkey as useFaucet.ts
-const MINTER_PUBKEY = "GqWFPtJTX4jVAQxX17vMbzwtY97PsZk7gaEtVuMjtk6D";
+import { MINTER_PUBKEY } from "@/store/wallet.store";
 
 function truncateMint(pk: PublicKey) {
   const s = pk.toBase58();
@@ -22,7 +20,7 @@ function useMintAuthority(mint: PublicKey | null): boolean | null {
     if (!mint) return;
     getMint(connection, mint)
       .then(info => {
-        const matches = info.mintAuthority?.toBase58() === MINTER_PUBKEY;
+        const matches = info.mintAuthority?.toBase58() === MINTER_PUBKEY.toBase58();
         setIsValid(matches);
       })
       .catch(() => setIsValid(false));
@@ -33,10 +31,8 @@ function useMintAuthority(mint: PublicKey | null): boolean | null {
 
 function FaucetRow({ mint }: { mint: PublicKey }) {
   const { mutate, isPending, error } = useFaucet(mint);
-  const isValidMinter = useMintAuthority(mint);
 
   const handleClick = (e: React.MouseEvent) => {
-    if (isValidMinter === false) return;
     e.preventDefault()
     e.stopPropagation()
     mutate()
@@ -46,14 +42,12 @@ function FaucetRow({ mint }: { mint: PublicKey }) {
     <button
       type="button"
       onClick={handleClick}
-      disabled={isPending || isValidMinter === false}
+      disabled={isPending}
       className={
         cn(
           "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2",
           "text-xs font-medium transition-colors",
-          isValidMinter === false 
-            ? "text-[#efe0f7]/20 cursor-not-allowed" 
-            : "text-[#c698e5]/80 hover:bg-[#c698e5]/10 cursor-pointer",
+          "text-[#c698e5]/80 hover:bg-[#c698e5]/10 cursor-pointer",
           isPending && "opacity-50"
         )
       }
@@ -62,23 +56,26 @@ function FaucetRow({ mint }: { mint: PublicKey }) {
         {truncateMint(mint)}
       </span>
       <div className="flex items-center gap-2">
-        {isValidMinter === false && (
-          <span className="text-[10px] text-[#efe0f7]/20">No faucet</span>
-        )}
-        {isValidMinter === null && (
-          <Loader2 size={10} className="shrink-0 animate-spin text-[#efe0f7]/20" />
-        )}
-        {error && isValidMinter !== false && (
+        {error && (
           <span className="text-[10px] text-red-400">Failed</span>
         )}
         {isPending ? (
           <Loader2 size={11} className="shrink-0 animate-spin text-[#c698e5]" />
-        ) : isValidMinter !== false && (
+        ) : (
           <Droplets size={11} className="shrink-0 text-[#c698e5]/60" />
         )}
       </div>
-    </button >
+    </button>
   );
+}
+
+function ValidatedFaucetRow({ mint }: { mint: PublicKey }) {
+  const isValidMinter = useMintAuthority(mint);
+  
+  // Don't render anything if not a valid faucet or still loading
+  if (isValidMinter !== true) return null;
+  
+  return <FaucetRow mint={mint} />;
 }
 
 /**
@@ -118,7 +115,7 @@ export function FaucetMenu() {
         </p>
       </div>
       {uniqueMints.map((mint) => (
-        <FaucetRow key={mint.toBase58()} mint={mint} />
+        <ValidatedFaucetRow key={mint.toBase58()} mint={mint} />
       ))}
     </>
   );

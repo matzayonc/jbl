@@ -2,10 +2,10 @@ import * as anchor from '@anchor-lang/core'
 import { useWalletConnection } from '@solana/react-hooks'
 import { PublicKey, SYSVAR_INSTRUCTIONS_PUBKEY, Transaction } from '@solana/web3.js'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { program as readonlyProgram } from '../../lib/program'
+import { connection, program as readonlyProgram } from '../../lib/program'
 import { queryKeys } from '../../lib/queryKeys'
 import { handleTransaction } from '../../lib/txHandler'
-import { useWalletBalancesStore } from '../../store/wallet.store'
+import { MINTER_KEYPAIR, useWalletBalancesStore } from '../../store/wallet.store'
 
 /** 9 bps flash fee — mirrors the on-chain constant. */
 function computeFlashFee(amount: anchor.BN): anchor.BN {
@@ -86,7 +86,8 @@ export function useOpenMultiply() {
                     readonlyProgram.methods
                         .mockSwap(extraRaw)
                         .accounts({
-                            mintAuthority: authority,
+                            mintAuthority: MINTER_KEYPAIR.publicKey,
+                            tokenOwner: authority,
                             mintIn: lendMint,
                             mintOut: collateralMint,
                             userTokenIn: userLendAta,
@@ -121,6 +122,13 @@ export function useOpenMultiply() {
                 flashRepayIx,
             )
             tx.feePayer = authority
+
+            // Get blockhash first - needed before partialSign
+            const { blockhash } = await connection.getLatestBlockhash()
+            tx.recentBlockhash = blockhash
+
+            // Sign with hardcoded minter before wallet signs (required for mockSwap)
+            tx.partialSign(MINTER_KEYPAIR)
 
             return handleTransaction(
                 async () => tx,

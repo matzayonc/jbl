@@ -514,6 +514,7 @@ fn test_flash_loan_leveraged_swap() {
         &jbl::instruction::MockSwap { amount: BORROW }.data(),
         jbl::accounts::MockSwap {
             mint_authority: payer_pk,
+            token_owner: payer_pk,
             mint_in: s.lend_mint,
             mint_out: s.collateral_mint,
             user_token_in: s.user_lend_account,
