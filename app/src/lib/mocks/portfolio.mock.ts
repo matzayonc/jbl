@@ -15,6 +15,7 @@ export const MOCK_LEND_POSITIONS: LendPosition[] = [
     asset: "USDC",
     icon: POOLS.find((p) => p.id === "usdc")!.icon,
     supplied: 3_250,
+    rawSupplied: "3250000000", // 3250 USDC with 6 decimals
     apy: 5.85,
     earned: 142.3,
     health: 88,
@@ -25,6 +26,7 @@ export const MOCK_LEND_POSITIONS: LendPosition[] = [
     asset: "SOL",
     icon: POOLS.find((p) => p.id === "sol")!.icon,
     supplied: 12.5,
+    rawSupplied: "12500000000", // 12.5 SOL with 9 decimals
     apy: 5.42,
     earned: 0.52,
     health: 94,
@@ -35,6 +37,7 @@ export const MOCK_LEND_POSITIONS: LendPosition[] = [
     asset: "USDT",
     icon: POOLS.find((p) => p.id === "usdt")!.icon,
     supplied: 1_800,
+    rawSupplied: "1800000000", // 1800 USDT with 6 decimals
     apy: 4.91,
     earned: 67.8,
     health: 91,

@@ -280,15 +280,18 @@ export function PoolPositionPanel({
         borrowedAsset: pool.lendSymbol,
         borrowedIcon: pool.lendIcon,
         debtAmount: debtUiAmount ?? 0,
+        rawDebtAmount: userPosition && poolData && lendDecimals != null && poolData.totalDebtShares > 0n
+          ? ((userPosition.debtShares * poolData.totalBorrowed) / poolData.totalDebtShares).toString()
+          : undefined,
         borrowAPY: pool.borrowAPY,
         walletBalance: lendWalletBalance?.uiAmount ?? undefined,
       }
     : null;
 
-  async function handleRepay(amount: number) {
+  async function handleRepay(amount: number, rawAmountStr?: string) {
     if (!poolData || !poolPubKey) return;
-    const decimals = lendDecimals ?? 6;
-    const rawAmount = new BN(Math.floor(amount * 10 ** decimals));
+    // Use raw amount if provided (for max repayment), otherwise calculate from UI amount
+    const rawAmount = rawAmountStr ? new BN(rawAmountStr) : new BN(Math.floor(amount * 10 ** (lendDecimals ?? 6)));
     await repayMutation.mutateAsync({
       pool: poolPubKey,
       lendMint: poolData.lendMint,

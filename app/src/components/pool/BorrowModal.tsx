@@ -111,7 +111,7 @@ export function BorrowModal({ pool, poolData, onClose }: BorrowModalProps) {
                 Amount
               </span>
               <button
-                onClick={() => setAmount(limit.toFixed(6))}
+                onClick={() => setAmount(String(limit))}
                 className="flex items-center gap-1 text-[11px] text-[#efe0f7]/35 hover:text-[#c698e5] transition-colors cursor-pointer min-w-0"
               >
                 <Wallet className="h-3 w-3 flex-shrink-0" />

@@ -251,4 +251,41 @@ describe("deposit and withdraw", () => {
             }
         });
     });
+
+    // ── 6. Withdraw exact full collateral amount from position ────────────────────
+    describe("withdraw exact full collateral amount read from position", () => {
+        const DEPOSIT_AMOUNT = 100_000_000;
+        const INITIAL_BALANCE = 1_000_000_000;
+
+        let setup: Awaited<ReturnType<typeof setupTest>>;
+
+        before(async () => {
+            setup = await setupTest();
+            await depositCollateral(setup, setup.authority, setup.userCollateralTokenAccount, DEPOSIT_AMOUNT);
+        });
+
+        it("withdraws the exact collateralDeposited amount from position", async () => {
+            const { program, pool, collateralVaultPda, userPositionPda, userCollateralTokenAccount, authority, connection } = setup;
+
+            // Read the actual deposited amount from the position
+            const positionBefore = await program.account.userPosition.fetch(userPositionPda);
+            const exactCollateralDeposited = positionBefore.collateralDeposited.toNumber();
+
+            // Withdraw the exact amount read from the position
+            await withdrawCollateral(setup, authority, userCollateralTokenAccount, exactCollateralDeposited);
+
+            // Verify state after withdraw
+            const poolAccount = await program.account.pool.fetch(pool);
+            expect(poolAccount.totalCollateralDeposited.toString()).to.equal("0");
+
+            const positionAfter = await program.account.userPosition.fetch(userPositionPda);
+            expect(positionAfter.collateralDeposited.toString()).to.equal("0");
+
+            const vault = await getAccount(connection, collateralVaultPda);
+            expect(vault.amount.toString()).to.equal("0");
+
+            const userToken = await getAccount(connection, userCollateralTokenAccount);
+            expect(userToken.amount.toString()).to.equal(INITIAL_BALANCE.toString());
+        });
+    });
 });

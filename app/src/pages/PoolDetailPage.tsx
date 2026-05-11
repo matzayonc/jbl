@@ -74,15 +74,16 @@ export function PoolDetailPage() {
       asset: pool.collateralSymbol,
       icon: pool.collateralIcon,
       supplied: Number(userPosition.collateralDeposited) / 10 ** decimals,
+      rawSupplied: userPosition.collateralDeposited.toString(),
       apy: pool.supplyAPY,
       collateralEnabled: true,
     };
   }, [pool, userPosition, collateralDecimals]);
 
-  async function handleWithdraw(amount: number) {
+  async function handleWithdraw(amount: number, rawAmountStr?: string) {
     if (!poolData || !walletPubKey || !poolPubKey) return;
-    const decimals = collateralDecimals ?? 9;
-    const rawAmount = new BN(Math.floor(amount * 10 ** decimals));
+    // Use raw amount if provided (for max withdrawal), otherwise calculate from UI amount
+    const rawAmount = rawAmountStr ? new BN(rawAmountStr) : new BN(Math.floor(amount * 10 ** (collateralDecimals ?? 9)));
     const userTokenAccount = getAssociatedTokenAddressSync(
       poolData.collateralMint,
       walletPubKey,

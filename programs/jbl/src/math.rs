@@ -56,7 +56,7 @@ pub fn shares_to_amount(shares: u64, total_borrowed: u64, total_debt_shares: u64
 ///
 /// `shares = repay_amount × total_debt_shares / total_borrowed`
 ///
-/// Uses floor division and is capped at `max_shares` so full-repay rounding
+/// Uses ceiling division and is capped at `max_shares` so full-repay rounding
 /// never burns more shares than the user holds.
 pub fn amount_to_shares_burned(
     repay_amount: u64,
@@ -68,8 +68,8 @@ pub fn amount_to_shares_burned(
         return Some(0);
     }
     let shares = (repay_amount as u128)
-        .checked_mul(total_debt_shares as u128)?
-        .checked_div(total_borrowed as u128)?;
+        .checked_mul(total_debt_shares as u128)?;
+    let shares = shares.div_ceil(total_borrowed as u128);
     let shares = u64::try_from(shares).ok()?.min(max_shares);
     Some(shares)
 }
