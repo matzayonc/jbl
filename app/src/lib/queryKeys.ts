@@ -8,6 +8,8 @@ export const queryKeys = {
     userPosition: {
         all: () => ['user-positions'] as const,
         byPool: (pool: PublicKey) => ['user-positions', 'pool', pool.toBase58()] as const,
+        byAuthority: (authority: PublicKey) =>
+            ['user-positions', 'authority', authority.toBase58()] as const,
         one: (pool: PublicKey, authority: PublicKey) =>
             ['user-positions', pool.toBase58(), authority.toBase58()] as const,
     },
