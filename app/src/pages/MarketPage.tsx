@@ -9,23 +9,7 @@ import { poolDataToDisplayPool } from "@/lib/poolDisplay";
 import type { Category, Pool } from "@/types/pool";
 import { BarChart3 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { getMint } from "@solana/spl-token";
-import { connection } from "@/lib/program";
-import { MINTER_PUBKEY } from "@/store/wallet.store";
-
-async function checkPoolHasValidMinter(pool: { collateralMint: { toBase58: () => string }; lendMint: { toBase58: () => string } }): Promise<boolean> {
-  try {
-    const [collateralInfo, lendInfo] = await Promise.all([
-      getMint(connection, pool.collateralMint as any),
-      getMint(connection, pool.lendMint as any),
-    ]);
-    const collateralValid = collateralInfo.mintAuthority?.toBase58() === MINTER_PUBKEY.toBase58();
-    const lendValid = lendInfo.mintAuthority?.toBase58() === MINTER_PUBKEY.toBase58();
-    return collateralValid && lendValid;
-  } catch {
-    return false;
-  }
-}
+import { isPoolValid } from "@/lib/validation";
 
 export function MarketPage() {
   const { data: lendingAccounts = [], isLoading: isLoadingPools } = useLendingAccounts();
@@ -46,7 +30,7 @@ export function MarketPage() {
     setIsCheckingMints(true);
     Promise.all(
       lendingAccounts.map(async (pool) => {
-        const isValid = await checkPoolHasValidMinter(pool);
+        const isValid = await isPoolValid(pool);
         return { id: pool.publicKey.toBase58(), isValid };
       })
     ).then(results => {

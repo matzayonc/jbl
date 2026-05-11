@@ -69,7 +69,7 @@ pub struct Create<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn create_handler(ctx: Context<Create>, m1: u64, c1: u64, m2: u64, c2: u64) -> Result<()> {
+pub fn create_handler(ctx: Context<Create>, m1: u64, c1: i64, m2: u64, c2: i64, ltv_percent: u8) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_init()?;
 
     pool.authority = ctx.accounts.authority.key();
@@ -82,7 +82,7 @@ pub fn create_handler(ctx: Context<Create>, m1: u64, c1: u64, m2: u64, c2: u64) 
     pool.total_debt_shares = 0;
     pool.last_accrual_ts = Clock::get()?.unix_timestamp;
     pool.total_lp_issued = 0;
-    pool.ltv_percent = 75;
+    pool.ltv_percent = ltv_percent;
     pool.fee_config = crate::fees::UtilizationFeeConfig { m1, c1, m2, c2 };
     pool.lp_mint_bump = ctx.bumps.lp_mint;
     // withdrawal_queue is zero-initialised by load_init (head=0, tail=0)

@@ -1,7 +1,9 @@
 import { useValidLendingAccounts } from "@/hooks/program/useValidLendingAccounts";
 import { poolDataToDisplayPool } from "@/lib/poolDisplay";
 import type { MultiplyMeta, Pool } from "@/types/pool";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { isMultiplyPoolValid } from "@/lib/validation";
+import type { PoolData } from "@/types/lending";
 
 export const MAX_MULTIPLY = 30;
 
@@ -30,7 +32,28 @@ export function buildMultiplyMeta(pool: Pool): MultiplyMeta {
 
 /** Returns all on-chain pools as multiply strategies (one strategy per pool). */
 export function useMultiplyStrategies() {
-  const { data: validPools = [], isLoading } = useValidLendingAccounts();
+  const { data: poolsData = [], isLoading } = useValidLendingAccounts();
+  const [validPools, setValidPools] = useState<PoolData[]>([]);
+
+  useEffect(() => {
+    if (poolsData.length === 0) {
+      setValidPools([]);
+      return;
+    }
+
+    Promise.all(
+      poolsData.map(async (pd) => {
+        const isValid = await isMultiplyPoolValid(pd);
+        return { pd, isValid };
+      })
+    )
+      .then((results) => {
+        setValidPools(results.filter((r) => r.isValid).map((r) => r.pd));
+      })
+      .catch(() => {
+        setValidPools([]);
+      });
+  }, [poolsData]);
 
   const strategies = useMemo<MultiplyStrategy[]>(
     () =>
@@ -58,4 +81,3 @@ export function useMultiplyStrategy(address: string | undefined) {
 
   return { data: strategy, isLoading };
 }
-

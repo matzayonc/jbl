@@ -33,6 +33,15 @@ export function WithdrawModal({
   const maxWithdraw = position.rawSupplied ? parseFloat(position.rawSupplied) : position.supplied;
   const remaining = Math.max(maxWithdraw - numAmount, 0);
 
+  // Format amount with pretty dot notation (2 decimal places minimum)
+  function formatAmount(value: number): string {
+    return value.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 6,
+      useGrouping: false,
+    });
+  }
+
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose();
   }
@@ -104,7 +113,7 @@ export function WithdrawModal({
                 Withdraw amount
               </span>
               <button
-                onClick={() => setAmount(String(maxWithdraw))}
+                onClick={() => setAmount(formatAmount(maxWithdraw))}
                 className="text-[11px] text-[#efe0f7]/35 hover:text-[#c698e5] transition-colors cursor-pointer"
               >
                 Max:{" "}
@@ -143,7 +152,7 @@ export function WithdrawModal({
             {[25, 50, 75, 100].map((p) => (
               <button
                 key={p}
-                onClick={() => setAmount(String((maxWithdraw * p) / 100))}
+                onClick={() => setAmount(formatAmount((maxWithdraw * p) / 100))}
                 className="flex-1 rounded-lg border border-[#c698e5]/15 py-1.5 text-[11px] font-medium text-[#efe0f7]/35 hover:border-[#c698e5]/35 hover:text-[#c698e5] transition-all cursor-pointer"
               >
                 {p}%

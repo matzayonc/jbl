@@ -68,13 +68,18 @@ pub fn repay_handler(ctx: Context<Repay>, amount: u64) -> Result<()> {
             ctx.accounts.user_token_account.amount >= repay_amount,
             crate::error::ErrorCode::InsufficientFunds
         );
-        let shares_to_burn = amount_to_shares_burned(
-            repay_amount,
-            pool.total_borrowed,
-            pool.total_debt_shares,
-            debt_shares,
-        )
-        .ok_or(crate::error::ErrorCode::MathOverflow)?;
+        // If repaying the full debt, burn ALL shares to avoid rounding dust
+        let shares_to_burn = if repay_amount == total_due {
+            debt_shares
+        } else {
+            amount_to_shares_burned(
+                repay_amount,
+                pool.total_borrowed,
+                pool.total_debt_shares,
+                debt_shares,
+            )
+            .ok_or(crate::error::ErrorCode::MathOverflow)?
+        };
         (repay_amount, shares_to_burn)
     };
 

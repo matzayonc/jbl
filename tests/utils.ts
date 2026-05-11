@@ -13,9 +13,9 @@ export const POOL_SPACE = 8 + 41184;
 
 export interface FeeCurve {
   m1: BN;
-  c1: BN;
+  c1: BN;  // Can be negative (i64 on-chain)
   m2: BN;
-  c2: BN;
+  c2: BN;  // Can be negative (i64 on-chain)
 }
 
 export const DEFAULT_FEE_CURVE: FeeCurve = {
@@ -55,9 +55,10 @@ export interface TestSetup {
  * `authority` receives 1000 tokens of each mint.
  *
  * @param feeCurve - The fee curve parameters (m1, c1, m2, c2) to use when creating the pool.
+ * @param ltvPercent - The LTV percentage for the pool (default: 75).
  * @returns A TestSetup object with all necessary accounts, PDAs, and program references.
  */
-export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE): Promise<TestSetup> {
+export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE, ltvPercent: number = 75): Promise<TestSetup> {
   const provider = AnchorProvider.env();
   anchor.setProvider(provider);
 
@@ -130,7 +131,7 @@ export async function setupTest(feeCurve: FeeCurve = DEFAULT_FEE_CURVE): Promise
 
   // Create the lending pool.  Anchor auto-resolves collateralVault, lendVault, lpMint, state.
   await program.methods
-    .create(feeCurve.m1, feeCurve.c1, feeCurve.m2, feeCurve.c2)
+    .create(feeCurve.m1, feeCurve.c1, feeCurve.m2, feeCurve.c2, ltvPercent)
     .accounts({
       pool,
       collateralMint,

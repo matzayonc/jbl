@@ -4,26 +4,19 @@ import { cn } from "@/lib/utils";
 import type { PublicKey } from "@solana/web3.js";
 import { Droplets, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getMint } from "@solana/spl-token";
-import { connection } from "@/lib/program";
-import { MINTER_PUBKEY } from "@/store/wallet.store";
+import { isTokenValid } from "@/lib/validation";
 
 function truncateMint(pk: PublicKey) {
   const s = pk.toBase58();
   return `${s.slice(0, 4)}…${s.slice(-4)}`;
 }
 
-function useMintAuthority(mint: PublicKey | null): boolean | null {
+function useTokenValidation(mint: PublicKey | null): boolean | null {
   const [isValid, setIsValid] = useState<boolean | null>(null);
   
   useEffect(() => {
     if (!mint) return;
-    getMint(connection, mint)
-      .then(info => {
-        const matches = info.mintAuthority?.toBase58() === MINTER_PUBKEY.toBase58();
-        setIsValid(matches);
-      })
-      .catch(() => setIsValid(false));
+    isTokenValid(mint).then(setIsValid);
   }, [mint?.toBase58()]);
   
   return isValid;
@@ -70,10 +63,10 @@ function FaucetRow({ mint }: { mint: PublicKey }) {
 }
 
 function ValidatedFaucetRow({ mint }: { mint: PublicKey }) {
-  const isValidMinter = useMintAuthority(mint);
+  const isValid = useTokenValidation(mint);
   
   // Don't render anything if not a valid faucet or still loading
-  if (isValidMinter !== true) return null;
+  if (isValid !== true) return null;
   
   return <FaucetRow mint={mint} />;
 }

@@ -28,7 +28,7 @@ async function poolHasValidMinter(pool: PoolData): Promise<boolean> {
  * Mirrors the filtering used in useMultiplyStrategies.
  */
 export function useValidLendingAccounts() {
-    const { data: poolsData = [], isLoading } = useLendingAccounts()
+    const { data: poolsData = [], isLoading, error } = useLendingAccounts()
     const [validPools, setValidPools] = useState<PoolData[]>([])
     const [isValidating, setIsValidating] = useState(false)
 
@@ -54,5 +54,5 @@ export function useValidLendingAccounts() {
             })
     }, [poolsData])
 
-    return { data: validPools, isLoading: isLoading || isValidating }
+    return { data: validPools, isLoading: isLoading || isValidating, error: error };
 }
