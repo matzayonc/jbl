@@ -1,33 +1,9 @@
-import { useLendingAccounts } from "@/hooks/program/useLendingAccounts";
+import { useValidLendingAccounts } from "@/hooks/program/useValidLendingAccounts";
 import { poolDataToDisplayPool } from "@/lib/poolDisplay";
-import { connection } from "@/lib/program";
-import { MINTER_PUBKEY } from "@/store/wallet.store";
-import type { PoolData } from "@/types/lending";
 import type { MultiplyMeta, Pool } from "@/types/pool";
-import { getMint } from "@solana/spl-token";
-import type { PublicKey } from "@solana/web3.js";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 export const MAX_MULTIPLY = 30;
-
-/** Check if a mint has the valid faucet authority */
-async function hasValidMinter(mint: PublicKey): Promise<boolean> {
-  try {
-    const info = await getMint(connection, mint);
-    return info.mintAuthority?.toBase58() === MINTER_PUBKEY.toBase58();
-  } catch {
-    return false;
-  }
-}
-
-/** Check if a pool has at least one valid faucet mint */
-async function poolHasValidMinter(pool: PoolData): Promise<boolean> {
-  const [collateralValid, lendValid] = await Promise.all([
-    hasValidMinter(pool.collateralMint),
-    hasValidMinter(pool.lendMint),
-  ]);
-  return collateralValid || lendValid;
-}
 
 export interface MultiplyStrategy extends Pool {
   meta: MultiplyMeta;
@@ -54,32 +30,7 @@ export function buildMultiplyMeta(pool: Pool): MultiplyMeta {
 
 /** Returns all on-chain pools as multiply strategies (one strategy per pool). */
 export function useMultiplyStrategies() {
-  const { data: poolsData = [], isLoading, error } = useLendingAccounts();
-  const [validPools, setValidPools] = useState<PoolData[]>([]);
-  const [isValidating, setIsValidating] = useState(false);
-
-  useEffect(() => {
-    if (poolsData.length === 0) {
-      setValidPools([]);
-      return;
-    }
-
-    setIsValidating(true);
-    Promise.all(
-      poolsData.map(async (pd) => {
-        const isValid = await poolHasValidMinter(pd);
-        return { pd, isValid };
-      })
-    )
-      .then((results) => {
-        setValidPools(results.filter((r) => r.isValid).map((r) => r.pd));
-        setIsValidating(false);
-      })
-      .catch(() => {
-        setValidPools([]);
-        setIsValidating(false);
-      });
-  }, [poolsData]);
+  const { data: validPools = [], isLoading } = useValidLendingAccounts();
 
   const strategies = useMemo<MultiplyStrategy[]>(
     () =>
@@ -90,12 +41,12 @@ export function useMultiplyStrategies() {
     [validPools],
   );
 
-  return { data: strategies, isLoading: isLoading || isValidating, error };
+  return { data: strategies, isLoading };
 }
 
 /** Returns a single multiply strategy by pool address. */
 export function useMultiplyStrategy(address: string | undefined) {
-  const { data: strategies, isLoading, error } = useMultiplyStrategies();
+  const { data: strategies, isLoading } = useMultiplyStrategies();
 
   const strategy = useMemo<MultiplyStrategy | null>(
     () =>
@@ -105,6 +56,6 @@ export function useMultiplyStrategy(address: string | undefined) {
     [strategies, address],
   );
 
-  return { data: strategy, isLoading, error };
+  return { data: strategy, isLoading };
 }
 

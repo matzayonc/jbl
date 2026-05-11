@@ -33,7 +33,7 @@ function mapPool(publicKey: PublicKey, data: Awaited<ReturnType<typeof program.a
 /** Fetch a single pool account by its public key. */
 export function useLendingAccount(pool: PublicKey | null) {
     return useQuery({
-        queryKey: queryKeys.lending.one(pool!),
+        queryKey: pool ? queryKeys.lending.one(pool) : ['lending', 'pool', 'null'],
         queryFn: async () => {
             const data = await program.account.pool.fetch(pool!)
             return mapPool(pool!, data)
