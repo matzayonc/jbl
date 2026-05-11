@@ -1,46 +1,235 @@
-import {
-    fetchBorrowPositions,
-    fetchLendPositions,
-    fetchMultiplyPositions,
-    fetchPortfolioSummary,
-} from "@/api/portfolio.api";
-import { useQuery } from "@tanstack/react-query";
+import { getPoolMeta } from '@/config/poolRegistry'
+import { generatePortfolioHistory } from '@/lib/mocks/portfolio.mock'
+import { derivePoolMetrics } from '@/lib/poolDisplay'
+import type {
+    BorrowPosition,
+    LendPosition,
+    MultiplyPosition,
+    PortfolioHistoryPoint,
+    PortfolioSummary,
+} from '@/types/portfolio'
+import { useWalletConnection } from '@solana/react-hooks'
+import { PublicKey } from '@solana/web3.js'
+import { useMemo } from 'react'
+import { useUserPositionsByAuthority } from './program/useUserPosition'
+import { useValidLendingAccounts } from './program/useValidLendingAccounts'
+import { useWalletBalances } from './useWalletBalances'
 
-export const portfolioKeys = {
-  summary: ["portfolio", "summary"] as const,
-  lend: ["portfolio", "lend"] as const,
-  borrow: ["portfolio", "borrow"] as const,
-  multiply: ["portfolio", "multiply"] as const,
-};
+const DECIMALS_FACTOR = 10 ** 6
 
-export function usePortfolioSummary(enabled = true) {
-  return useQuery({
-    queryKey: portfolioKeys.summary,
-    queryFn: fetchPortfolioSummary,
-    enabled,
-  });
+// ─── Internal helpers ─────────────────────────────────────────────────────────
+
+function useWalletPublicKey(): PublicKey | null {
+    const { connected, wallet } = useWalletConnection()
+    return useMemo(() => {
+        if (!connected || !wallet) return null
+        return new PublicKey(wallet.account.publicKey)
+    }, [connected, wallet])
 }
+
+// ─── Lend Positions ────────────────────────────────────────────────────────────
+// Derived from LP token balances held in the connected wallet.
+// LP share → proportional claim on total lend supply.
 
 export function useLendPositions(enabled = true) {
-  return useQuery({
-    queryKey: portfolioKeys.lend,
-    queryFn: fetchLendPositions,
-    enabled,
-  });
+    const { data: pools = [], isLoading: poolsLoading } = useValidLendingAccounts()
+    const { data: balances, isLoading: balancesLoading } = useWalletBalances()
+
+    const data = useMemo<LendPosition[]>(() => {
+        if (!enabled || !pools.length || !balances?.tokens.length) return []
+
+        return pools.flatMap((pool) => {
+            const lpToken = balances.tokens.find((t) => t.mint.equals(pool.lpMint))
+            if (!lpToken || lpToken.amount === 0n) return []
+
+            const totalLpIssued = Number(pool.totalLpIssued)
+            if (totalLpIssued === 0) return []
+
+            const metrics = derivePoolMetrics(pool)
+            const lpShare = Number(lpToken.amount) / totalLpIssued
+            // totalLendRaw = totalLendDeposited + totalBorrowed (full supply including lent-out)
+            const supplied = (lpShare * metrics.totalLendRaw) / DECIMALS_FACTOR
+
+            // Health proxy: how easy it is to withdraw — decreases with utilization.
+            // 100 = fully liquid pool, 0 = fully utilized (no liquidity to withdraw).
+            const health = Math.max(0, Math.min(100, Math.round(100 - metrics.utilizationPct)))
+
+            // Rough earned estimate (~1 month at current APY). No historical data on-chain.
+            const earnedEstimate = +(supplied * (metrics.supplyAPY / 100) / 12).toFixed(4)
+            const meta = getPoolMeta(pool.publicKey.toBase58())
+
+            return [{
+                id: pool.publicKey.toBase58(),
+                asset: meta.symbol,
+                icon: meta.icon,
+                supplied,
+                apy: metrics.supplyAPY,
+                earned: earnedEstimate,
+                health,
+                collateralEnabled: true,
+            } satisfies LendPosition]
+        })
+    }, [enabled, pools, balances])
+
+    return { data, isLoading: enabled && (poolsLoading || balancesLoading) }
 }
+
+// ─── Borrow Positions ──────────────────────────────────────────────────────────
+// Derived from on-chain UserPosition accounts where debtShares > 0.
 
 export function useBorrowPositions(enabled = true) {
-  return useQuery({
-    queryKey: portfolioKeys.borrow,
-    queryFn: fetchBorrowPositions,
-    enabled,
-  });
+    const authority = useWalletPublicKey()
+    const { data: pools = [], isLoading: poolsLoading } = useValidLendingAccounts()
+    const { data: userPositions = [], isLoading: positionsLoading } =
+        useUserPositionsByAuthority(enabled ? authority : null)
+
+    const data = useMemo<BorrowPosition[]>(() => {
+        if (!enabled || !userPositions.length || !pools.length) return []
+
+        return userPositions.flatMap((pos) => {
+            if (pos.debtShares === 0n) return []
+
+            const pool = pools.find((p) => p.publicKey.equals(pos.pool))
+            if (!pool) return []
+
+            const metrics = derivePoolMetrics(pool)
+            const totalDebtShares = Number(pool.totalDebtShares)
+            const debtShares = Number(pos.debtShares)
+
+            const debtRaw =
+                totalDebtShares > 0
+                    ? (debtShares / totalDebtShares) * metrics.totalBorrowedRaw
+                    : 0
+            const debtAmount = debtRaw / DECIMALS_FACTOR
+            const collateralAmount = Number(pos.collateralDeposited) / DECIMALS_FACTOR
+
+            const currentLtv =
+                collateralAmount > 0 ? (debtAmount / collateralAmount) * 100 : 0
+            const healthFactor =
+                debtAmount > 0
+                    ? (collateralAmount * (pool.ltvPercent / 100)) / debtAmount
+                    : 999
+
+            // Liquidation "price": the collateral-to-debt ratio at which the
+            // position becomes eligible for liquidation. Meaningful for same-
+            // denomination assets (e.g. USDC/USDT) as a parity threshold.
+            const liqPrice =
+                collateralAmount > 0
+                    ? debtAmount / (collateralAmount * (pool.ltvPercent / 100))
+                    : 0
+            const meta = getPoolMeta(pool.publicKey.toBase58())
+
+            return [{
+                id: pos.publicKey.toBase58(),
+                poolId: pool.publicKey.toBase58(),
+                collateralAsset: meta.collateralSymbol,
+                collateralIcon: meta.collateralIcon,
+                collateralAmount,
+                borrowedAsset: meta.lendSymbol,
+                borrowedIcon: meta.lendIcon,
+                debtAmount,
+                borrowAPY: metrics.borrowAPY,
+                ltv: currentLtv,
+                liqPrice,
+                healthFactor: isFinite(healthFactor) ? healthFactor : 999,
+            } satisfies BorrowPosition]
+        })
+    }, [enabled, userPositions, pools])
+
+    return { data, isLoading: enabled && (poolsLoading || positionsLoading) }
 }
 
+// ─── Multiply Positions ────────────────────────────────────────────────────────
+// Leveraged positions share the same on-chain account type (UserPosition) as
+// borrow positions — there is no on-chain marker to distinguish them.
+// This hook re-exports borrow positions as multiply-compatible entries using
+// available on-chain metrics (collateral as position size, debt ratio as multiplier).
+
 export function useMultiplyPositions(enabled = true) {
-  return useQuery({
-    queryKey: portfolioKeys.multiply,
-    queryFn: fetchMultiplyPositions,
-    enabled,
-  });
+    const { data: borrowPositions, isLoading } = useBorrowPositions(enabled)
+
+    const data = useMemo<MultiplyPosition[]>(() => {
+        return borrowPositions.map((pos) => {
+            // Effective multiplier: how many times the net equity is leveraged.
+            // net equity = collateral − debt; multiplier = collateral / equity.
+            const netEquity = Math.max(pos.collateralAmount - pos.debtAmount, 0.01)
+            const multiplier = Math.min(pos.collateralAmount / netEquity, 30)
+            const netAPY = Math.max(0, multiplier * 3 - (multiplier - 1) * pos.borrowAPY)
+
+            return {
+                id: pos.id,
+                poolId: pos.poolId,
+                // The collateral asset is what the user deposited (the "leveraged" side).
+                // The borrowed asset is the debt token they owe.
+                asset: pos.collateralAsset,
+                icon: pos.collateralIcon,
+                debtAsset: pos.borrowedAsset,
+                debtIcon: pos.borrowedIcon,
+                multiplier: +multiplier.toFixed(2),
+                netAPY: +netAPY.toFixed(2),
+                // positionSize = full collateral value (not derived via LTV round-trip)
+                positionSize: +pos.collateralAmount.toFixed(2),
+                entryPrice: 0,
+                currentPrice: 0,
+                liqPrice: pos.liqPrice,
+                pnl: 0,
+                pnlPct: 0,
+            } satisfies MultiplyPosition
+        })
+    }, [borrowPositions])
+
+    return { data, isLoading }
 }
+
+// ─── Portfolio Summary ─────────────────────────────────────────────────────────
+// Net value and totals are derived from real chain data.
+// The 90-day history chart remains illustrative (no on-chain history).
+
+export function usePortfolioSummary(enabled = true) {
+    const { data: lendPositions, isLoading: lendLoading } = useLendPositions(enabled)
+    const { data: borrowPositions, isLoading: borrowLoading } = useBorrowPositions(enabled)
+
+    const data = useMemo<PortfolioSummary | undefined>(() => {
+        if (!enabled) return undefined
+
+        const totalSupplied = lendPositions.reduce((s, p) => s + p.supplied, 0)
+        const totalDebt = borrowPositions.reduce((s, p) => s + p.debtAmount, 0)
+        const netValue = Math.max(0, totalSupplied - totalDebt)
+
+        // Generate raw mock history with a stable reference value (PORTFOLIO_START).
+        // Then scale every point proportionally so the last point equals the real
+        // net value. This preserves the visual shape while avoiding the "cliff"
+        // caused by overriding only the last point when history and current value
+        // are on different scales.
+        const rawHistory = generatePortfolioHistory(90)
+        const rawLast = rawHistory[rawHistory.length - 1].value
+        const scale = netValue > 0 && rawLast > 0 ? netValue / rawLast : 1
+        const history: PortfolioHistoryPoint[] = rawHistory.map((p) => ({
+            ...p,
+            value: Math.round(p.value * scale),
+        }))
+
+        const last = history[history.length - 1]
+        const ago30 = history[history.length - 31]
+        const change30d = last.value - ago30.value
+        const change30dPct = ago30.value > 0 ? (change30d / ago30.value) * 100 : 0
+
+        // Leveraged exposure = sum of collateral values across all borrow positions.
+        // Using collateralAmount directly avoids the ltv round-trip (debt/ltv)
+        // which can amplify floating-point errors at low ltv values.
+        const leveragedExposure = borrowPositions.reduce((s, p) => s + p.collateralAmount, 0)
+
+        return {
+            netValue,
+            totalSupplied,
+            totalDebt,
+            leveragedExposure,
+            change30d,
+            change30dPct,
+            history,
+        }
+    }, [enabled, lendPositions, borrowPositions])
+
+    return { data, isLoading: lendLoading || borrowLoading }
+}
+

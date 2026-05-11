@@ -2,9 +2,9 @@
 
 export function HealthBadge({ value }: { value: number }) {
   const color =
-    value >= 85
+    value <= 95
       ? "text-[#34d399] bg-[#34d399]/10"
-      : value >= 70
+      : value <= 99
       ? "text-[#f0a854] bg-[#f0a854]/10"
       : "text-[#d45677] bg-[#d45677]/10";
   return (

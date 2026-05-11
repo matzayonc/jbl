@@ -13,8 +13,10 @@ export interface LendPosition {
 
 export interface BorrowPosition {
   id: string;
+  poolId: string;
   collateralAsset: string;
   collateralIcon: string;
+  collateralAmount: number;
   borrowedAsset: string;
   borrowedIcon: string;
   debtAmount: number;
@@ -26,9 +28,11 @@ export interface BorrowPosition {
 
 export interface MultiplyPosition {
   id: string;
+  poolId: string;
   asset: string;
   icon: string;
   debtAsset: string;
+  debtIcon: string;
   multiplier: number;
   netAPY: number;
   positionSize: number;
