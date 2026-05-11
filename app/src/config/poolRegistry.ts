@@ -30,7 +30,7 @@ const POOL_REGISTRY: Record<string, PoolMeta> = {
         category: 'stablecoin',
     },
     'Fb4DxpMYFgdTB4FXq6o3Z2BGKh98zbQqkZH7iFXP1gdG': {
-        name: 'Tesla Stock',
+        name: 'Tesla',
         symbol: 'TSLAx',
         icon: "https://wsrv.nl/?w=32&h=32&url=https%3A%2F%2Fxstocks-metadata.backed.fi%2Flogos%2Ftokens%2FTSLAx.png&dpr=2&quality=80",
         collateralSymbol: 'USDT',
@@ -40,7 +40,7 @@ const POOL_REGISTRY: Record<string, PoolMeta> = {
         category:   'volatile',
     },
     'Gg5Zy7n1sHjLh3mLh9e2qj8X9v1Z5o6a7b8c9d0e1f2g': {
-        name: 'Nvidia Stock',
+        name: 'Nvidia',
         symbol: 'NVDAx',
         icon: "https://wsrv.nl/?w=32&h=32&url=https%3A%2F%2Fxstocks-metadata.backed.fi%2Flogos%2Ftokens%2FNVDAx.png&dpr=2&quality=80",
         collateralSymbol: 'USDC',

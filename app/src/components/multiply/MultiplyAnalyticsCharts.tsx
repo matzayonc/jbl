@@ -1,3 +1,4 @@
+import { buildMultiplyMeta } from "@/hooks/useMultiply";
 import {
   AXIS_LINE,
   GRID_STYLE,
@@ -6,7 +7,6 @@ import {
   TOOLTIP_STYLE,
 } from "@/lib/chartStyles";
 import { formatLargeUSD } from "@/lib/formatters";
-import { MULTIPLY_META } from "@/lib/mocks/multiply.mock";
 import type { Pool } from "@/types/pool";
 import { useMemo } from "react";
 import {
@@ -99,7 +99,7 @@ interface Props {
 }
 
 export function MultiplyAnalyticsCharts({ pool, seed }: Props) {
-  const meta = MULTIPLY_META["usdc"];
+  const meta = useMemo(() => buildMultiplyMeta(pool), [pool]);
 
   const multiplierLevels = useMemo(
     () =>
