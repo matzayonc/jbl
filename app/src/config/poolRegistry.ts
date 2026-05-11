@@ -14,6 +14,12 @@ export interface PoolMeta {
     lendSymbol: string
     lendIcon: string
     category: Category
+    /**
+     * Binance USD-M perpetual futures symbol used for the price chart.
+     * If undefined the chart falls back to generated mock data.
+     * Example: 'TSLAUSDT', 'NVDAUSDT'
+     */
+    binancePerp?: string
 }
 
 const POOL_REGISTRY: Record<string, PoolMeta> = {
@@ -38,6 +44,7 @@ const POOL_REGISTRY: Record<string, PoolMeta> = {
         lendSymbol: 'TSLAx',
         lendIcon: "https://wsrv.nl/?w=32&h=32&url=https%3A%2F%2Fxstocks-metadata.backed.fi%2Flogos%2Ftokens%2FTSLAx.png&dpr=2&quality=80",
         category:   'volatile',
+        binancePerp: 'TSLAUSDT',
     },
     'Gg5Zy7n1sHjLh3mLh9e2qj8X9v1Z5o6a7b8c9d0e1f2g': {
         name: 'Nvidia',
@@ -48,6 +55,7 @@ const POOL_REGISTRY: Record<string, PoolMeta> = {
         lendSymbol: 'NVDAx',
         lendIcon: "https://wsrv.nl/?w=32&h=32&url=https%3A%2F%2Fxstocks-metadata.backed.fi%2Flogos%2Ftokens%2FNVDAx.png&dpr=2&quality=80",
         category:   'volatile',
+        binancePerp: 'NVDAUSDT',
     }
 } 
 

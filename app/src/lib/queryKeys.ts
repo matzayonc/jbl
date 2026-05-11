@@ -16,4 +16,8 @@ export const queryKeys = {
     wallet: {
         balances: (address: string) => ['wallet', 'balances', address] as const,
     },
+    klines: {
+        perp: (symbol: string, interval: string) =>
+            ['klines', 'perp', symbol, interval] as const,
+    },
 } as const
