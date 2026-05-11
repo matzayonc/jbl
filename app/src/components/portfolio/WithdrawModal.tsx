@@ -29,8 +29,7 @@ export function WithdrawModal({
   const [amount, setAmount] = useState("");
 
   const numAmount = parseFloat(amount) || 0;
-  // Use rawSupplied for precise max calculation to avoid floating point issues
-  const maxWithdraw = position.rawSupplied ? parseFloat(position.rawSupplied) : position.supplied;
+  const maxWithdraw = position.supplied;
   const remaining = Math.max(maxWithdraw - numAmount, 0);
 
   // Format amount with pretty dot notation (2 decimal places minimum)
