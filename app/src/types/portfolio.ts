@@ -7,6 +7,8 @@ export interface LendPosition {
   earned: number;
   health: number;
   collateralEnabled: boolean;
+  /** Raw exact amount as string to avoid floating point precision issues when withdrawing max */
+  rawSupplied?: string;
 }
 
 export interface BorrowPosition {

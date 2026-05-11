@@ -11,12 +11,14 @@ export interface RepayPosition {
   borrowAPY: number;
   /** User's lend-token wallet balance — caps how much they can actually repay. */
   walletBalance?: number;
+  /** Raw exact debt amount as string to avoid floating point precision issues when repaying max */
+  rawDebtAmount?: string;
 }
 
 interface RepayModalProps {
   position: RepayPosition;
   onClose: () => void;
-  onRepay?: (amount: number) => Promise<void>;
+  onRepay?: (amount: number, rawAmount?: string) => Promise<void>;
   isPending?: boolean;
 }
 
@@ -41,7 +43,9 @@ export function RepayModal({
 
   async function handleSubmit() {
     if (!numAmount || numAmount <= 0) return;
-    if (onRepay) await onRepay(numAmount);
+    // Pass raw amount if repaying max (to avoid floating point precision issues)
+    const isMaxRepay = numAmount >= maxRepay;
+    if (onRepay) await onRepay(numAmount, isMaxRepay ? position.rawDebtAmount : undefined);
     onClose();
   }
 
@@ -102,7 +106,7 @@ export function RepayModal({
                 Repay amount
               </span>
               <button
-                onClick={() => setAmount(maxRepay.toFixed(2))}
+                onClick={() => setAmount(String(maxRepay))}
                 className="text-[11px] text-[#efe0f7]/35 hover:text-[#c698e5] transition-colors cursor-pointer"
               >
                 Max:{" "}
@@ -142,7 +146,7 @@ export function RepayModal({
             {[25, 50, 75, 100].map((p) => (
               <button
                 key={p}
-                onClick={() => setAmount(((maxRepay * p) / 100).toFixed(2))}
+                onClick={() => setAmount(String((maxRepay * p) / 100))}
                 className="flex-1 rounded-lg border border-[#c698e5]/15 py-1.5 text-[11px] font-medium text-[#efe0f7]/35 hover:border-[#c698e5]/35 hover:text-[#c698e5] transition-all cursor-pointer"
               >
                 {p}%
