@@ -83,7 +83,7 @@ export function SupplyMoreModal({
             <div className="flex items-center justify-between px-1">
               <span className="text-[11px] text-[#efe0f7]/40">Amount</span>
               <button
-                onClick={() => setAmount(walletBalance.toFixed(2))}
+                onClick={() => setAmount(String(walletBalance))}
                 className="flex items-center gap-1 text-[11px] text-[#efe0f7]/35 hover:text-[#c698e5] transition-colors cursor-pointer"
               >
                 <Wallet className="h-3 w-3" />

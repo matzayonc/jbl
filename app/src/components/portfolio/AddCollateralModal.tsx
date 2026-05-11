@@ -100,7 +100,7 @@ export function AddCollateralModal({
                 Collateral amount
               </span>
               <button
-                onClick={() => setAmount(walletBalance.toFixed(4))}
+                onClick={() => setAmount(String(walletBalance))}
                 className="flex items-center gap-1 text-[11px] text-[#efe0f7]/35 hover:text-[#c698e5] transition-colors cursor-pointer"
               >
                 <Wallet className="h-3 w-3" />

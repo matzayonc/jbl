@@ -8,13 +8,15 @@ export interface WithdrawPosition {
   supplied: number;
   apy: number;
   collateralEnabled: boolean;
+  /** Raw exact amount as string to avoid floating point precision issues when withdrawing max */
+  rawSupplied?: string;
 }
 
 interface WithdrawModalProps {
   position: WithdrawPosition;
   onClose: () => void;
   disabled?: boolean;
-  onWithdraw?: (amount: number) => Promise<void>;
+  onWithdraw?: (amount: number, rawAmount?: string) => Promise<void>;
   isPending?: boolean;
 }
 
@@ -27,7 +29,8 @@ export function WithdrawModal({
   const [amount, setAmount] = useState("");
 
   const numAmount = parseFloat(amount) || 0;
-  const maxWithdraw = position.supplied;
+  // Use rawSupplied for precise max calculation to avoid floating point issues
+  const maxWithdraw = position.rawSupplied ? parseFloat(position.rawSupplied) : position.supplied;
   const remaining = Math.max(maxWithdraw - numAmount, 0);
 
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
@@ -36,7 +39,9 @@ export function WithdrawModal({
 
   async function handleSubmit() {
     if (!numAmount || numAmount <= 0) return;
-    if (onWithdraw) await onWithdraw(numAmount);
+    // Pass raw amount if withdrawing max (to avoid floating point precision issues)
+    const isMaxWithdrawal = numAmount >= maxWithdraw;
+    if (onWithdraw) await onWithdraw(numAmount, isMaxWithdrawal ? position.rawSupplied : undefined);
     onClose();
   }
 
@@ -64,7 +69,10 @@ export function WithdrawModal({
               <p className="text-[11px] text-[#efe0f7]/35">
                 Supplied:{" "}
                 <span className="tabular-nums text-[#efe0f7]/60">
-                  ${position.supplied.toLocaleString()}
+                  {position.supplied.toLocaleString("en-US", {
+                    maximumFractionDigits: 9,
+                  })}{" "}
+                  {position.asset}
                 </span>
               </p>
             </div>
@@ -96,12 +104,15 @@ export function WithdrawModal({
                 Withdraw amount
               </span>
               <button
-                onClick={() => setAmount(maxWithdraw.toFixed(2))}
+                onClick={() => setAmount(String(maxWithdraw))}
                 className="text-[11px] text-[#efe0f7]/35 hover:text-[#c698e5] transition-colors cursor-pointer"
               >
                 Max:{" "}
                 <span className="tabular-nums text-[#efe0f7]/55">
-                  ${maxWithdraw.toLocaleString()} {position.asset}
+                  {position.supplied.toLocaleString("en-US", {
+                    maximumFractionDigits: 9,
+                  })}{" "}
+                  {position.asset}
                 </span>
               </button>
             </div>
@@ -132,7 +143,7 @@ export function WithdrawModal({
             {[25, 50, 75, 100].map((p) => (
               <button
                 key={p}
-                onClick={() => setAmount(((maxWithdraw * p) / 100).toFixed(2))}
+                onClick={() => setAmount(String((maxWithdraw * p) / 100))}
                 className="flex-1 rounded-lg border border-[#c698e5]/15 py-1.5 text-[11px] font-medium text-[#efe0f7]/35 hover:border-[#c698e5]/35 hover:text-[#c698e5] transition-all cursor-pointer"
               >
                 {p}%
@@ -157,9 +168,8 @@ export function WithdrawModal({
                 Remaining supply
               </span>
               <span className="text-xs font-semibold tabular-nums text-[#efe0f7]/70">
-                $
                 {remaining.toLocaleString("en-US", {
-                  maximumFractionDigits: 2,
+                  maximumFractionDigits: 9,
                 })}{" "}
                 {position.asset}
               </span>
