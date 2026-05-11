@@ -1,11 +1,8 @@
+import { getPoolMeta } from '@/config/poolRegistry'
 import type { PoolData, UtilizationFeeConfig } from '@/types/lending'
 import type { Pool } from '@/types/pool'
 
-/** Default icon shown when no token metadata is available. */
-export const FALLBACK_ICON =
-    'https://wsrv.nl/?w=64&h=64&url=https%3A%2F%2Fraw.githubusercontent.com%2Fsolana-labs%2Ftoken-list%2Fmain%2Fassets%2Fmainnet%2FEPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v%2Flogo.png&dpr=2&quality=80'
 
-    export const FALLBACK_ICON_2 = "https://wsrv.nl/?w=64&h=64&url=https%3A%2F%2Fraw.githubusercontent.com%2Fsolana-labs%2Ftoken-list%2Fmain%2Fassets%2Fmainnet%2FEs9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB%2Flogo.svg&dpr=2&quality=80"
 /**
  * On-chain token amounts use 6 decimal places (USDC / USDT style).
  * Divide raw bigint/number values by this factor to get UI amounts.
@@ -85,18 +82,12 @@ export function derivePoolMetrics(pd: PoolData): {
 export function poolDataToDisplayPool(pd: PoolData): Pool {
     const metrics = derivePoolMetrics(pd)
     const addr = pd.publicKey.toBase58()
+    const meta = getPoolMeta(addr)
 
     return {
         id: addr,
         address: addr,
-        // Primary identity = lend token (the asset lenders supply / borrowers receive)
-        name: "Tether USD",
-        symbol: "USDT",
-        icon: FALLBACK_ICON_2,
-        collateralSymbol: "USDC",
-        collateralIcon: FALLBACK_ICON,
-        lendSymbol: "USDT",
-        lendIcon: FALLBACK_ICON_2,
+        ...meta,
         supplyAPY: metrics.supplyAPY,
         borrowAPY: metrics.borrowAPY,
         // Convert raw 6-decimal amounts to human-readable UI values
@@ -105,7 +96,6 @@ export function poolDataToDisplayPool(pd: PoolData): Pool {
         totalCollateral: metrics.totalCollateralRaw / (10 ** COLLATERAL_DECIMALS),
         utilization: metrics.utilizationPct,
         ltv: pd.ltvPercent,
-        category: 'stablecoin' as const,
         availableLiquidity: metrics.availableLiquidityRaw / DECIMALS_FACTOR,
     }
 }

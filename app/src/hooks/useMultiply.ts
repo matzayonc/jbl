@@ -1,12 +1,12 @@
 import { useLendingAccounts } from "@/hooks/program/useLendingAccounts";
 import { poolDataToDisplayPool } from "@/lib/poolDisplay";
+import { connection } from "@/lib/program";
 import { MINTER_PUBKEY } from "@/store/wallet.store";
+import type { PoolData } from "@/types/lending";
 import type { MultiplyMeta, Pool } from "@/types/pool";
 import { getMint } from "@solana/spl-token";
-import { useEffect, useMemo, useState } from "react";
-import { connection } from "@/lib/program";
-import type { PoolData } from "@/types/lending";
 import type { PublicKey } from "@solana/web3.js";
+import { useEffect, useMemo, useState } from "react";
 
 export const MAX_MULTIPLY = 30;
 

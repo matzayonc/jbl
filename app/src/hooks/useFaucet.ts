@@ -8,10 +8,10 @@ import {
 } from '@solana/spl-token'
 import { PublicKey, Transaction } from '@solana/web3.js'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { queryKeys } from '../lib/queryKeys'
 import { connection } from '../lib/program'
+import { queryKeys } from '../lib/queryKeys'
 import { handleTransaction } from '../lib/txHandler'
-import { MINTER_KEYPAIR } from '../store/wallet.store'
+import { MINTER_KEYPAIR, useWalletBalancesStore } from '../store/wallet.store'
 
 const FAUCET_AMOUNT = 1_000_000_000 // 1 000 tokens at 6 decimals
 
@@ -75,6 +75,7 @@ export function useFaucet(mint: PublicKey) {
                 queryClient.invalidateQueries({
                     queryKey: queryKeys.wallet.balances(address),
                 })
+                void useWalletBalancesStore.getState().fetch(address)
             }
         },
     })

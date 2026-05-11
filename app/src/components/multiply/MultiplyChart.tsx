@@ -1,4 +1,4 @@
-import { MULTIPLY_META } from "@/lib/mocks/multiply.mock";
+import { buildMultiplyMeta } from "@/hooks/useMultiply";
 import { cn } from "@/lib/utils";
 import type { Pool } from "@/types/pool";
 import {
@@ -94,7 +94,7 @@ interface MultiplyChartProps {
 }
 
 export function MultiplyChart({ pool, seed }: MultiplyChartProps) {
-  const meta = MULTIPLY_META["usdc"];
+  const meta = useMemo(() => buildMultiplyMeta(pool), [pool]);
   const [tab, setTab] = useState<ChartTab>("price");
   const [priceRange, setPriceRange] = useState<PriceRange>(90);
   const chartRef = useRef<HTMLDivElement>(null);
