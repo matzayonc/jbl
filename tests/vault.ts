@@ -63,7 +63,7 @@ describe("pool creation (create)", () => {
             });
 
             await program.methods
-                .create(DEFAULT_FEE_CURVE.m1, DEFAULT_FEE_CURVE.c1, DEFAULT_FEE_CURVE.m2, DEFAULT_FEE_CURVE.c2)
+                .create(DEFAULT_FEE_CURVE.m1, DEFAULT_FEE_CURVE.c1, DEFAULT_FEE_CURVE.m2, DEFAULT_FEE_CURVE.c2, 75)
                 .accounts({
                     pool: poolKeypair.publicKey,
                     collateralMint,
@@ -115,7 +115,7 @@ describe("pool creation (create)", () => {
         it("fails when pool is already initialised (zero constraint violated)", async () => {
             try {
                 await program.methods
-                    .create(DEFAULT_FEE_CURVE.m1, DEFAULT_FEE_CURVE.c1, DEFAULT_FEE_CURVE.m2, DEFAULT_FEE_CURVE.c2)
+                    .create(DEFAULT_FEE_CURVE.m1, DEFAULT_FEE_CURVE.c1, DEFAULT_FEE_CURVE.m2, DEFAULT_FEE_CURVE.c2, 75)
                     .accounts({
                         pool: poolKeypair.publicKey,
                         collateralMint,

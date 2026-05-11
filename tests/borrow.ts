@@ -380,7 +380,12 @@ describe("borrow", () => {
         let setup: TestSetup;
 
         before(async () => {
-            setup = await setupTest();
+            setup = await setupTest({
+                m1: new anchor.BN(0),
+                c1: new anchor.BN(0),
+                m2: new anchor.BN(0),
+                c2: new anchor.BN(0),
+            });
             await participateInPool(setup, LEND_LIQUIDITY);
             await depositCollateral(setup, setup.authority, setup.userCollateralTokenAccount, COLLATERAL_DEPOSIT);
             await borrow(setup, setup.authority, BORROW_AMOUNT);

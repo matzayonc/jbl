@@ -20,8 +20,8 @@ declare_id!("zTXtKnfRov21zv9VzywG9p3vNFTF1445wCch5oqqBBZ");
 pub mod jbl {
     use super::*;
 
-    pub fn create(ctx: Context<Create>, m1: u64, c1: u64, m2: u64, c2: u64) -> Result<()> {
-        create_handler(ctx, m1, c1, m2, c2)
+    pub fn create(ctx: Context<Create>, m1: u64, c1: i64, m2: u64, c2: i64, ltv_percent: u8) -> Result<()> {
+        create_handler(ctx, m1, c1, m2, c2, ltv_percent)
     }
 
     pub fn deposit_collateral(ctx: Context<DepositCollateral>, amount: u64) -> Result<()> {

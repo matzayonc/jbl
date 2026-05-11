@@ -177,11 +177,21 @@ const DEFAULT_FORM: FormState = {
 function validate(form: FormState): FormErrors {
   const errors: FormErrors = {};
 
-  const numFields = ["m1", "c1", "m2", "c2"] as const;
-  for (const k of numFields) {
+  // Slopes (m1, m2) must be non-negative
+  const slopeFields = ["m1", "m2"] as const;
+  for (const k of slopeFields) {
     const n = Number(form[k]);
     if (form[k] === "" || isNaN(n) || n < 0) {
       errors[k] = "Must be a non-negative number";
+    }
+  }
+
+  // Intercepts (c1, c2) can be negative (i64 on-chain)
+  const interceptFields = ["c1", "c2"] as const;
+  for (const k of interceptFields) {
+    const n = Number(form[k]);
+    if (form[k] === "" || isNaN(n)) {
+      errors[k] = "Must be a valid number";
     }
   }
 
@@ -330,6 +340,7 @@ export function CreatePoolPage() {
             <p className="text-[11px] text-[#efe0f7]/35 -mt-2">
               Two-slope model: rate&nbsp;=&nbsp;m·utilisation&nbsp;+&nbsp;c. The
               first slope applies below the kink, the second above it.
+              Intercepts (c₁, c₂) can be negative for advanced curve shaping.
             </p>
 
             <div className="grid grid-cols-2 gap-4">
@@ -352,14 +363,13 @@ export function CreatePoolPage() {
               <Field
                 id="c1"
                 label="c₁ — Low intercept"
-                hint="Base rate for low utilisation (bps)"
+                hint="Base rate for low utilisation (bps, can be negative)"
                 error={fieldError("c1")}
               >
                 <NumberInput
                   id="c1"
                   value={form.c1}
                   onChange={(v) => setField("c1", v)}
-                  min={0}
                   placeholder="200"
                   hasError={!!fieldError("c1")}
                 />
@@ -384,14 +394,13 @@ export function CreatePoolPage() {
               <Field
                 id="c2"
                 label="c₂ — High intercept"
-                hint="Base rate for high utilisation (bps)"
+                hint="Base rate for high utilisation (bps, can be negative)"
                 error={fieldError("c2")}
               >
                 <NumberInput
                   id="c2"
                   value={form.c2}
                   onChange={(v) => setField("c2", v)}
-                  min={0}
                   placeholder="1000"
                   hasError={!!fieldError("c2")}
                 />

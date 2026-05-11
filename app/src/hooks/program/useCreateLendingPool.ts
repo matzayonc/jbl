@@ -109,12 +109,14 @@ async function createPool(
     )
 
     // Step 3: initialize the pool via the `create` instruction
+    const ltvPercent = params.ltvPercent ?? 75
     const createTx = await readonlyProgram.methods
         .create(
             new anchor.BN(feeConfig.m1),
             new anchor.BN(feeConfig.c1),
             new anchor.BN(feeConfig.m2),
             new anchor.BN(feeConfig.c2),
+            ltvPercent,
         )
         .accounts({
             pool: poolKeypair.publicKey,

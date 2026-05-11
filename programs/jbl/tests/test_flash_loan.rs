@@ -219,6 +219,7 @@ fn setup(seed_lend_amount: u64) -> Setup {
             c1: 50,
             m2: 0,
             c2: 0,
+            ltv_percent: 75,
         }
         .data(),
         jbl::accounts::Create {

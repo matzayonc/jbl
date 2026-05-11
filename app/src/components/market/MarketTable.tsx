@@ -13,7 +13,8 @@ export type SortKey =
   | "supplyAPY"
   | "borrowAPY"
   | "totalSupplied"
-  | "totalBorrowed";
+  | "totalBorrowed"
+  | "ltv";
 export type SortDir = "asc" | "desc";
 
 interface MarketTableProps {
@@ -47,12 +48,14 @@ const CATEGORY_COLORS: Record<string, string> = {
   lsd: "text-[#f0a854] bg-[#f0a854]/8 border-[#f0a854]/20",
 };
 
-const COLUMNS: { key: SortKey; label: string }[] = [
+const DATA_COLUMNS = [
   { key: "supplyAPY", label: "Supply APY" },
   { key: "borrowAPY", label: "Borrow APY" },
   { key: "totalSupplied", label: "Total Supplied" },
   { key: "totalBorrowed", label: "Total Borrowed" },
-];
+  { key: "ltv", label: "LTV" },
+  { key: "collateral", label: "Collateral" },
+] as const;
 
 export function MarketTable({
   pools,
@@ -65,18 +68,21 @@ export function MarketTable({
   return (
     <div className="overflow-hidden rounded-2xl border border-[#c698e5]/12">
       {/* Header row */}
-      <div className="grid grid-cols-[minmax(0,2fr)_repeat(4,1fr)_20px] gap-4 border-b border-[#c698e5]/10 bg-[#c698e5]/[0.03] px-5 py-3 items-center">
+      <div className="grid grid-cols-[minmax(0,2fr)_1fr_repeat(5,1fr)_20px] gap-4 border-b border-[#c698e5]/10 bg-[#c698e5]/[0.03] px-5 py-3 items-center">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-[#efe0f7]/30">
           Asset
         </span>
-        {COLUMNS.slice(0, 4).map(({ key, label }) => (
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-[#efe0f7]/30 text-right">
+          Collateral
+        </span>
+        {DATA_COLUMNS.slice(0, 5).map(({ key, label }) => (
           <button
             key={key}
-            onClick={() => onSort(key)}
+            onClick={() => onSort(key as SortKey)}
             className="flex cursor-pointer items-center justify-end text-[10px] font-semibold uppercase tracking-wider text-[#efe0f7]/30 hover:text-[#c698e5] transition-colors whitespace-nowrap"
           >
             {label}
-            <SortIcon col={key} activeKey={sortKey} sortDir={sortDir} />
+            <SortIcon col={key as SortKey} activeKey={sortKey} sortDir={sortDir} />
           </button>
         ))}
         <span />
@@ -92,7 +98,7 @@ export function MarketTable({
             key={pool.id}
             onClick={() => navigate(`/pool/${pool.id}`)}
             className={cn(
-              "grid grid-cols-[minmax(0,2fr)_repeat(4,1fr)_20px] gap-4 items-center px-5 py-4 cursor-pointer group transition-colors hover:bg-[#c698e5]/[0.04]",
+              "grid grid-cols-[minmax(0,2fr)_1fr_repeat(5,1fr)_20px] gap-4 items-center px-5 py-4 cursor-pointer group transition-colors hover:bg-[#c698e5]/[0.04]",
               i < pools.length - 1 && "border-b border-[#c698e5]/8",
             )}
           >
@@ -121,23 +127,28 @@ export function MarketTable({
                   >
                     {pool.category}
                   </span>
-                  {/* Collateral badge */}
-                  {pool.collateralSymbol && (
-                    <span className="inline-flex items-center gap-1 text-[9px] text-[#efe0f7]/28 px-1.5 py-px rounded border border-[#efe0f7]/8 bg-[#efe0f7]/4">
-                      {pool.collateralIcon && (
-                        <img
-                          src={pool.collateralIcon}
-                          alt={pool.collateralSymbol}
-                          width={10}
-                          height={10}
-                          className="h-2.5 w-2.5 rounded-full object-contain"
-                        />
-                      )}
-                      {pool.collateralSymbol}
-                    </span>
-                  )}
                 </div>
               </div>
+            </div>
+
+            {/* Collateral */}
+            <div className="text-right">
+              {pool.collateralSymbol && (
+                <div className="inline-flex items-center justify-end gap-1.5">
+                  <span className="text-sm text-[#efe0f7]/75">
+                    {pool.collateralSymbol}
+                  </span>
+                  {pool.collateralIcon && (
+                    <img
+                      src={pool.collateralIcon}
+                      alt={pool.collateralSymbol}
+                      width={20}
+                      height={20}
+                      className="h-5 w-5 rounded-full object-contain"
+                    />
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Supply APY */}
@@ -165,6 +176,13 @@ export function MarketTable({
             <div className="text-right">
               <p className="text-sm mr-2 tabular-nums text-[#efe0f7]/75">
                 {formatRawTokens(pool.totalBorrowed)}
+              </p>
+            </div>
+
+            {/* LTV */}
+            <div className="text-right">
+              <p className="text-sm mr-2 tabular-nums text-[#efe0f7]/75">
+                {pool.ltv}%
               </p>
             </div>
 

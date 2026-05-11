@@ -152,6 +152,7 @@ describe("flash-loan", () => {
                 .mockSwap(new BN(BORROW_AMOUNT))
                 .accounts({
                     mintAuthority: authority.publicKey,
+                    tokenOwner: authority.publicKey,
                     mintIn: lendMint,
                     mintOut: collateralMint,
                     userTokenIn: userLendTokenAccount,
