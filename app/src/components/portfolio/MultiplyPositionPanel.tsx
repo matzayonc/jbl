@@ -127,9 +127,9 @@ export function MultiplyPositionPanel({
 
   // Build ManageMultiplyPosition from real data (price = 1 assumed)
   const managePos: ManageMultiplyPosition = {
-    asset: pool.collateralSymbol,
-    icon: pool.collateralIcon,
-    debtAsset: pool.lendSymbol,
+    asset: pool.lendSymbol,
+    icon: pool.lendIcon,
+    debtAsset: pool.collateralSymbol,
     multiplier: position.leverage,
     netAPY: position.netAPY,
     positionSize: position.collateralUi,
