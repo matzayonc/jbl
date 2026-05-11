@@ -41,22 +41,27 @@ export function derivePoolMetrics(pd: PoolData): {
     const totalLendRaw = Number(pd.totalLendDeposited)
     const totalBorrowedRaw = Number(pd.totalBorrowed)
     const totalCollateralRaw = Number(pd.totalCollateralDeposited)
+    const pendingWithdrawalsRaw = Number(pd.pendingWithdrawals)
 
     // total_lend_deposited tracks total deposits and does NOT decrease when
     // tokens are borrowed out. Utilization mirrors the on-chain formula:
     //   utilization = total_borrowed / total_lend_deposited
+    // Pending withdrawals are treated as committed (unavailable) capital, so
+    // they are added to the effective borrowed amount for utilization.
+    const effectiveBorrowedRaw = totalBorrowedRaw + pendingWithdrawalsRaw
     const utilizationBps =
         totalLendRaw > 0
-            ? Math.min(10_000, Math.round((totalBorrowedRaw / totalLendRaw) * 10_000))
+            ? Math.round((effectiveBorrowedRaw / totalLendRaw) * 10_000)
             : 0
 
     const utilizationPct = utilizationBps / 100
 
     const borrowRateBps = computeFeeBps(pd.feeConfig, utilizationBps)
     const borrowAPY = borrowRateBps / 100
-    const supplyAPY = borrowAPY * (utilizationPct / 100)
+    const baseUtilizationPct = totalLendRaw > 0 ? (totalBorrowedRaw / totalLendRaw) * 100 : 0
+    const supplyAPY = borrowAPY * (baseUtilizationPct / 100)
 
-    const availableLiquidityRaw = totalLendRaw - totalBorrowedRaw
+    const availableLiquidityRaw = totalLendRaw - effectiveBorrowedRaw
 
     return {
         utilizationBps,

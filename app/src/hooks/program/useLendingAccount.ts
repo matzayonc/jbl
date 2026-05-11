@@ -27,6 +27,15 @@ function mapPool(publicKey: PublicKey, data: Awaited<ReturnType<typeof program.a
             m2: BigInt(data.feeConfig.m2.toString()),
             c2: BigInt(data.feeConfig.c2.toString()),
         },
+        pendingWithdrawals: (() => {
+            const { head, tail, entries } = data.withdrawalQueue
+            const len = entries.length
+            let sum = BigInt(0)
+            for (let i = head; i !== tail; i = (i + 1) % len) {
+                sum += BigInt(entries[i].amount.toString())
+            }
+            return sum
+        })(),
     }
 }
 

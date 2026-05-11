@@ -22,6 +22,8 @@ export interface PoolData {
     feeConfig: UtilizationFeeConfig
     ltvPercent: number
     lpMintBump: number
+    /** Sum of all pending withdrawal amounts currently in the on-chain queue (raw token units). */
+    pendingWithdrawals: bigint
 }
 
 export interface UserPositionData {

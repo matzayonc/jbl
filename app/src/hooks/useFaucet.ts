@@ -98,11 +98,11 @@ export function useFaucet(mint: PublicKey) {
                 async () => {
                     const tx = new Transaction()
                     tx.feePayer = payer
-                    
+
                     // Get blockhash first - needed before partialSign
                     const { blockhash } = await connection.getLatestBlockhash()
                     tx.recentBlockhash = blockhash
-                    
+
                     tx.add(
                         createAssociatedTokenAccountIdempotentInstruction(
                             payer, ata, payer, mint,

@@ -70,6 +70,15 @@ export const ZONES = [
     tip: "High rate pressure",
     desc: "Rate spikes sharply — incentivising new supply or repayments.",
   },
+  {
+    from: 100,
+    to: Infinity,
+    color: "#ef4444",
+    label: "Over-utilized",
+    sub: "> 100 %",
+    tip: "Queue active",
+    desc: "Withdrawal queue engaged. Protocol operating in over-utilization mode.",
+  },
 ] as const;
 
 export type Zone = (typeof ZONES)[number];
@@ -83,10 +92,12 @@ export function UtilizationGauge({
   totalSupplied,
   totalBorrowed,
 }: UtilizationGaugeProps) {
-  const pct = Math.min(100, Math.max(0, utilization));
+  const pct = utilization;
   const zone = zoneForPct(pct);
-  const available = Math.max(0, totalSupplied - totalBorrowed);
-  const fillSweep = (pct / 100) * ARC_SWEEP;
+  const available = totalSupplied - totalBorrowed;
+  // Arc is capped at full sweep visually; the real value is shown in the centre text
+  const arcPct = Math.min(100, Math.max(0, pct));
+  const fillSweep = (arcPct / 100) * ARC_SWEEP;
   const tipPoint = pt(ARC_START + fillSweep);
 
   return (
@@ -193,7 +204,7 @@ export function UtilizationGauge({
           })}
 
           {/* Tip dot */}
-          {pct > 0 && pct < 100 && (
+          {pct > 0 && arcPct < 100 && (
             <circle
               cx={tipPoint.x}
               cy={tipPoint.y}
@@ -210,12 +221,12 @@ export function UtilizationGauge({
               color: string;
               anchor: "start" | "middle" | "end";
             }> = [
-              { pct: 0, color: "#efe0f7", anchor: "middle" },
-              { pct: 60, color: "#38bdf8", anchor: "middle" },
-              { pct: 85, color: "#34d399", anchor: "middle" },
-              { pct: 95, color: "#f59e0b", anchor: "middle" },
-              { pct: 100, color: "#efe0f7", anchor: "middle" },
-            ];
+                { pct: 0, color: "#efe0f7", anchor: "middle" },
+                { pct: 60, color: "#38bdf8", anchor: "middle" },
+                { pct: 85, color: "#34d399", anchor: "middle" },
+                { pct: 95, color: "#f59e0b", anchor: "middle" },
+                { pct: 100, color: "#efe0f7", anchor: "middle" },
+              ];
             return labels.map(({ pct: lp, color, anchor }) => {
               const pos = pt(
                 ARC_START + (lp / 100) * ARC_SWEEP,
@@ -322,7 +333,7 @@ export function UtilizationGauge({
           <div className="h-0.5 rounded-full bg-[#c698e5]/10 mt-0.5 w-full overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-700"
-              style={{ width: `${pct}%`, backgroundColor: zone.color }}
+              style={{ width: `${Math.min(100, Math.max(0, pct))}%`, backgroundColor: zone.color }}
             />
           </div>
         </div>
@@ -337,7 +348,7 @@ export function UtilizationGauge({
           <div className="h-0.5 rounded-full bg-[#efe0f7]/8 mt-0.5 w-full overflow-hidden">
             <div
               className="h-full rounded-full bg-[#efe0f7]/30 transition-all duration-700"
-              style={{ width: `${100 - pct}%` }}
+              style={{ width: `${Math.max(0, 100 - pct)}%` }}
             />
           </div>
         </div>
