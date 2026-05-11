@@ -5,27 +5,43 @@ import { MultiplyChart } from "@/components/multiply/MultiplyChart";
 import { MultiplyHero } from "@/components/multiply/MultiplyHero";
 import { MultiplyStatsGrid } from "@/components/multiply/MultiplyStatsGrid";
 import { MultiplyPositionPanel } from "@/components/portfolio/MultiplyPositionPanel";
-import { useMultiplyStrategy } from "@/hooks/useMultiply";
+import { useLendingAccount } from "@/hooks/program/useLendingAccount";
+import { poolDataToDisplayPool } from "@/lib/poolDisplay";
 import { useWalletConnection } from "@solana/react-hooks";
+import { PublicKey } from "@solana/web3.js";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
 export function MultiplyDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  // The :id param holds the pool's base-58 address (set by MultiplyTable navigation)
+  const { id: address } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { connected } = useWalletConnection();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { data: strategy, isLoading } = useMultiplyStrategy(id);
-  const chartSeed = useMemo(
-    () =>
-      strategy
-        ? strategy.id.charCodeAt(0) * 31 + (strategy.id.charCodeAt(1) ?? 0)
-        : 42,
-    [strategy],
+  const poolPubKey = useMemo(() => {
+    if (!address) return null;
+    try {
+      return new PublicKey(address);
+    } catch {
+      return null;
+    }
+  }, [address]);
+
+  const { data: poolData, isLoading } = useLendingAccount(poolPubKey);
+
+  const pool = useMemo(
+    () => (poolData ? poolDataToDisplayPool(poolData) : null),
+    [poolData],
   );
 
-  if (isLoading || !strategy) {
+  const chartSeed = useMemo(
+    () =>
+      address ? address.charCodeAt(0) * 31 + (address.charCodeAt(1) ?? 0) : 42,
+    [address],
+  );
+
+  if (isLoading || !pool || !poolData) {
     return (
       <div className="w-full max-w-6xl mx-auto px-4 py-12">
         <BackButton to="/multiply" label="Back to Multiply" />
@@ -51,28 +67,36 @@ export function MultiplyDetailPage() {
   return (
     <>
       {isModalOpen && (
-        <LeverageModal pool={strategy} onClose={() => setIsModalOpen(false)} />
+        <LeverageModal
+          pool={pool}
+          poolData={poolData}
+          onClose={() => setIsModalOpen(false)}
+        />
       )}
 
       <div className="w-full max-w-6xl mx-auto px-4 py-12">
         <BackButton to="/multiply" label="Back to Multiply" />
 
         <MultiplyHero
-          pool={strategy}
+          pool={pool}
           isWalletConnected={connected}
           onOpenPosition={() => setIsModalOpen(true)}
         />
 
-        <MultiplyStatsGrid pool={strategy} />
+        <MultiplyStatsGrid pool={pool} />
 
         <div className="mt-5">
-          <MultiplyPositionPanel pool={strategy} connected={connected} />
+          <MultiplyPositionPanel
+            pool={pool}
+            poolData={poolData}
+            connected={connected}
+          />
         </div>
 
         {/* Price chart (2/3) + How it Works sidebar (1/3) */}
         <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
           <div className="lg:col-span-2">
-            <MultiplyChart pool={strategy} seed={chartSeed} />
+            <MultiplyChart pool={pool} seed={chartSeed} />
           </div>
 
           {/* How it Works — vertical stepper */}
@@ -82,7 +106,6 @@ export function MultiplyDetailPage() {
             </p>
 
             <div className="flex flex-col flex-1">
-              {/* Step 1 */}
               <div className="flex gap-3.5 flex-1">
                 <div className="flex flex-col items-center">
                   <div className="flex-shrink-0 flex items-center justify-center h-6 w-6 rounded-full border border-[#c698e5]/35 bg-[#c698e5]/12 text-[9px] font-bold text-[#c698e5] leading-none">
@@ -95,12 +118,10 @@ export function MultiplyDetailPage() {
                     Deposit collateral
                   </p>
                   <p className="text-xs text-[#efe0f7]/35 leading-relaxed">
-                    Supply {strategy.symbol} as collateral into the pool.
+                    Supply {pool.collateralSymbol} as collateral into the pool.
                   </p>
                 </div>
               </div>
-
-              {/* Step 2 */}
               <div className="flex gap-3.5 flex-1">
                 <div className="flex flex-col items-center">
                   <div className="flex-shrink-0 flex items-center justify-center h-6 w-6 rounded-full border border-[#c698e5]/35 bg-[#c698e5]/12 text-[9px] font-bold text-[#c698e5] leading-none">
@@ -110,16 +131,14 @@ export function MultiplyDetailPage() {
                 </div>
                 <div className="pb-6 pt-0.5">
                   <p className="text-sm font-semibold text-[#efe0f7]/70 mb-1 leading-snug">
-                    Borrow {strategy.meta.debtSymbol}
+                    Borrow {pool.lendSymbol}
                   </p>
                   <p className="text-xs text-[#efe0f7]/35 leading-relaxed">
-                    Protocol borrows {strategy.meta.debtSymbol} against your
-                    collateral and swaps back to {strategy.symbol}.
+                    Protocol flash-borrows {pool.lendSymbol}, swaps to more{" "}
+                    {pool.collateralSymbol} and deposits it.
                   </p>
                 </div>
               </div>
-
-              {/* Step 3 */}
               <div className="flex gap-3.5">
                 <div className="flex-shrink-0 flex items-center justify-center h-6 w-6 rounded-full border border-[#c698e5]/35 bg-[#c698e5]/12 text-[9px] font-bold text-[#c698e5] leading-none">
                   3
@@ -129,8 +148,8 @@ export function MultiplyDetailPage() {
                     Compounded exposure
                   </p>
                   <p className="text-xs text-[#efe0f7]/35 leading-relaxed">
-                    Loop repeats to your target multiplier. Net APY = staking
-                    yield − borrow cost.
+                    One atomic transaction, up to {pool.ltv}% LTV. Net APY =
+                    supply yield × leverage − borrow cost.
                   </p>
                 </div>
               </div>
@@ -139,7 +158,7 @@ export function MultiplyDetailPage() {
         </div>
 
         {/* Analytics: Available Liquidity + Net APY over time */}
-        <MultiplyAnalyticsCharts pool={strategy} seed={chartSeed} />
+        <MultiplyAnalyticsCharts pool={pool} seed={chartSeed} />
 
         {!connected && (
           <p className="mt-6 text-center text-xs text-[#efe0f7]/30">

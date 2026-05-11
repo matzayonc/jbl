@@ -1,5 +1,5 @@
 import { ActionButton } from "@/components/common/ActionButton";
-import { MULTIPLY_META } from "@/lib/mocks/multiply.mock";
+import { MAX_MULTIPLY } from "@/hooks/useMultiply";
 import type { Pool } from "@/types/pool";
 import { Zap } from "lucide-react";
 
@@ -14,22 +14,20 @@ export function MultiplyHero({
   isWalletConnected,
   onOpenPosition,
 }: MultiplyHeroProps) {
-  const meta = MULTIPLY_META[pool.id];
-
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-8">
       <div className="flex items-center gap-4">
         <div className="relative flex-shrink-0">
           <img
-            src={pool.icon}
-            alt={pool.symbol}
+            src={pool.lendIcon}
+            alt={pool.lendSymbol}
             width={56}
             height={56}
             className="h-14 w-14 rounded-full ring-2 ring-[#c698e5]/20 object-contain"
           />
           <img
-            src={meta.debtIcon}
-            alt={meta.debtSymbol}
+            src={pool.collateralIcon}
+            alt={pool.collateralSymbol}
             width={26}
             height={26}
             className="absolute -bottom-1 -right-1 h-[26px] w-[26px] rounded-full ring-2 ring-[#17081f]"
@@ -42,7 +40,7 @@ export function MultiplyHero({
               {pool.name}
             </h1>
             <span className="text-sm font-medium text-[#efe0f7]/35">
-              {pool.symbol} / {meta.debtSymbol}
+              {pool.symbol} / {pool.collateralSymbol}
             </span>
           </div>
           <div className="flex items-center gap-2 mt-1.5">
@@ -51,7 +49,7 @@ export function MultiplyHero({
               Multiply
             </span>
             <span className="text-[11px] text-[#efe0f7]/30">
-              Borrow {meta.debtSymbol} · loop collateral
+              Borrow {pool.lendSymbol} · loop collateral · up to {MAX_MULTIPLY}×
             </span>
           </div>
         </div>
@@ -62,7 +60,7 @@ export function MultiplyHero({
         disabled={!isWalletConnected}
         variant="primary"
         icon={<Zap className="h-4 w-4" />}
-        label={`Multiply ${pool.symbol}`}
+        label={`Multiply ${pool.lendSymbol}`}
       />
     </div>
   );

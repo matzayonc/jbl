@@ -23,7 +23,17 @@ interface PortfolioChartProps {
   changePct30d: number;
 }
 
+function chartDomain(history: PortfolioHistoryPoint[]): [number, number] {
+  if (history.length === 0) return [0, 100];
+  const values = history.map((p) => p.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const padding = Math.max((max - min) * 0.15, max * 0.05);
+  return [Math.max(0, Math.floor(min - padding)), Math.ceil(max + padding)];
+}
+
 export function PortfolioChart({ history, changePct30d }: PortfolioChartProps) {
+  const [yMin, yMax] = chartDomain(history);
   return (
     <div className="rounded-2xl border border-[#c698e5]/12 bg-[#c698e5]/[0.02] overflow-hidden mb-6">
       <div className="px-5 pt-4 pb-3 border-b border-[#c698e5]/10 flex items-center justify-between">
@@ -64,6 +74,7 @@ export function PortfolioChart({ history, changePct30d }: PortfolioChartProps) {
               axisLine={AXIS_LINE}
               tickLine={false}
               width={58}
+              domain={[yMin, yMax]}
             />
             <Tooltip
               contentStyle={TOOLTIP_STYLE}

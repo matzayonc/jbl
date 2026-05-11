@@ -11,9 +11,7 @@ import { BarChart3 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getMint } from "@solana/spl-token";
 import { connection } from "@/lib/program";
-
-// Hardcoded minter pubkey - must match useFaucet.ts
-const MINTER_PUBKEY = "GqWFPtJTX4jVAQxX17vMbzwtY97PsZk7gaEtVuMjtk6D";
+import { MINTER_PUBKEY } from "@/store/wallet.store";
 
 async function checkPoolHasValidMinter(pool: { collateralMint: { toBase58: () => string }; lendMint: { toBase58: () => string } }): Promise<boolean> {
   try {
@@ -21,8 +19,8 @@ async function checkPoolHasValidMinter(pool: { collateralMint: { toBase58: () =>
       getMint(connection, pool.collateralMint as any),
       getMint(connection, pool.lendMint as any),
     ]);
-    const collateralValid = collateralInfo.mintAuthority?.toBase58() === MINTER_PUBKEY;
-    const lendValid = lendInfo.mintAuthority?.toBase58() === MINTER_PUBKEY;
+    const collateralValid = collateralInfo.mintAuthority?.toBase58() === MINTER_PUBKEY.toBase58();
+    const lendValid = lendInfo.mintAuthority?.toBase58() === MINTER_PUBKEY.toBase58();
     return collateralValid && lendValid;
   } catch {
     return false;

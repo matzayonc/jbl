@@ -372,7 +372,48 @@ describe("borrow", () => {
         });
     });
 
-    // ── 11. Withdraw collateral blocked by open borrow ────────────────────────────
+    // ── 11. Repay exact full debt clears all shares (rounding test) ───────────────
+    describe("repay exact calculated debt amount clears all shares", () => {
+        const COLLATERAL_DEPOSIT = 100_000_000;
+        const BORROW_AMOUNT = 50_000_000;
+
+        let setup: TestSetup;
+
+        before(async () => {
+            setup = await setupTest();
+            await participateInPool(setup, LEND_LIQUIDITY);
+            await depositCollateral(setup, setup.authority, setup.userCollateralTokenAccount, COLLATERAL_DEPOSIT);
+            await borrow(setup, setup.authority, BORROW_AMOUNT);
+        });
+
+        it("fully repays debt and clears all debt shares", async () => {
+            const { program, pool, userPositionPda, authority } = setup;
+
+            // Get position before repay
+            const positionBefore = await program.account.userPosition.fetch(userPositionPda);
+            const poolBefore = await program.account.pool.fetch(pool);
+
+            // Calculate exact debt amount using BigInt for precision (matches program's ceiling division)
+            const debtShares = BigInt(positionBefore.debtShares.toString());
+            const totalBorrowed = BigInt(poolBefore.totalBorrowed.toString());
+            const totalDebtShares = BigInt(poolBefore.totalDebtShares.toString());
+            // shares_to_amount uses ceiling division: (shares * total_borrowed + total_debt_shares - 1) / total_debt_shares
+            const exactDebt = Number((debtShares * totalBorrowed + totalDebtShares - BigInt(1)) / totalDebtShares);
+
+            // Repay the exact calculated debt
+            await repay(setup, authority, exactDebt);
+
+            // Verify all debt is cleared
+            const positionAfter = await program.account.userPosition.fetch(userPositionPda);
+            expect(positionAfter.debtShares.toNumber()).to.equal(0);
+
+            const poolAfter = await program.account.pool.fetch(pool);
+            expect(poolAfter.totalDebtShares.toNumber()).to.equal(0);
+            expect(poolAfter.totalBorrowed.toNumber()).to.equal(0);
+        });
+    });
+
+    // ── 12. Withdraw collateral blocked by open borrow ────────────────────────────
     describe("withdraw collateral with open borrow", () => {
         const COLLATERAL_DEPOSIT = 100_000_000;
         const BORROW_AMOUNT = 70_000_000; // 70% LTV — withdraw would breach

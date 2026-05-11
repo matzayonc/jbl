@@ -1,0 +1,148 @@
+import * as anchor from '@anchor-lang/core'
+import { useWalletConnection } from '@solana/react-hooks'
+import { PublicKey, SYSVAR_INSTRUCTIONS_PUBKEY, Transaction } from '@solana/web3.js'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { connection, program as readonlyProgram } from '../../lib/program'
+import { queryKeys } from '../../lib/queryKeys'
+import { handleTransaction } from '../../lib/txHandler'
+import { MINTER_KEYPAIR, useWalletBalancesStore } from '../../store/wallet.store'
+
+/** 9 bps flash fee — mirrors the on-chain constant. */
+function computeFlashFee(amount: anchor.BN): anchor.BN {
+    return amount.muln(9).divn(10_000)
+}
+
+export interface OpenMultiplyParams {
+    pool: PublicKey
+    lendMint: PublicKey
+    collateralMint: PublicKey
+    /** User's collateral ATA — source of initial capital; receives swapped tokens. */
+    userCollateralAta: PublicKey
+    /** User's lend ATA — receives flash-borrowed lend tokens; source for flash repay. */
+    userLendAta: PublicKey
+    /** Initial collateral (raw, no decimals). This is the user's own capital. */
+    amountRaw: anchor.BN
+    /** Desired leverage multiplier, e.g. 2.5 for 2.5×. */
+    leverage: number
+}
+
+/**
+ * Open a leveraged (multiply) position via a flash-loan loop.
+ *
+ * Transaction sequence:
+ *   1. depositCollateral(amount)              — user's own capital
+ *   2. flashBorrow(extra = amount × (L−1))    — lend tokens
+ *   3. mockSwap(extra, lend → collateral)     — synthetic 1:1 swap
+ *   4. depositCollateral(extra)               — swapped collateral
+ *   5. borrow(extra + fee)                    — lend tokens to cover flash repay
+ *   6. flashRepay(extra + fee)
+ *
+ * Resulting on-chain state:
+ *   collateralDeposited ≈ amount × L
+ *   debtShares > 0 (debt ≈ amount × (L−1))
+ *
+ * The user pays zero lend tokens net — the flash fee is embedded in the borrow.
+ * The user must hold `amountRaw` collateral tokens before calling this.
+ */
+export function useOpenMultiply() {
+    const { connected, wallet } = useWalletConnection()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: async ({
+            pool,
+            lendMint,
+            collateralMint,
+            userCollateralAta,
+            userLendAta,
+            amountRaw,
+            leverage,
+        }: OpenMultiplyParams) => {
+            if (!connected || !wallet) throw new Error('Wallet not connected')
+
+            const authority = new PublicKey(wallet.account.publicKey)
+
+            // extra = amount × (leverage − 1); use integer ×1000 to stay in BN arithmetic
+            const leverageMilli = Math.round(leverage * 1_000)
+            const extraRaw = amountRaw.muln(leverageMilli - 1_000).divn(1_000)
+            const flashFee = computeFlashFee(extraRaw)
+            const flashRepayAmt = extraRaw.add(flashFee)
+
+            const [depositInitialIx, flashBorrowIx, swapIx, depositExtraIx, borrowIx, flashRepayIx] =
+                await Promise.all([
+                    readonlyProgram.methods
+                        .depositCollateral(amountRaw)
+                        .accounts({ pool, collateralMint, authority, userTokenAccount: userCollateralAta })
+                        .instruction(),
+                    readonlyProgram.methods
+                        .flashBorrow(extraRaw)
+                        .accounts({
+                            pool,
+                            lendMint,
+                            userDestination: userLendAta,
+                            sysvarInstructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+                        })
+                        .instruction(),
+                    readonlyProgram.methods
+                        .mockSwap(extraRaw)
+                        .accounts({
+                            mintAuthority: MINTER_KEYPAIR.publicKey,
+                            tokenOwner: authority,
+                            mintIn: lendMint,
+                            mintOut: collateralMint,
+                            userTokenIn: userLendAta,
+                            userTokenOut: userCollateralAta,
+                        })
+                        .instruction(),
+                    readonlyProgram.methods
+                        .depositCollateral(extraRaw)
+                        .accounts({ pool, collateralMint, authority, userTokenAccount: userCollateralAta })
+                        .instruction(),
+                    // Borrow enough lend tokens to cover the flash repay
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    readonlyProgram.methods.borrow(flashRepayAmt).accounts({ pool, lendMint, authority } as any).instruction(),
+                    readonlyProgram.methods
+                        .flashRepay(flashRepayAmt)
+                        .accounts({
+                            pool,
+                            lendMint,
+                            userSource: userLendAta,
+                            authority,
+                            sysvarInstructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+                        })
+                        .instruction(),
+                ])
+
+            const tx = new Transaction().add(
+                depositInitialIx,
+                flashBorrowIx,
+                swapIx,
+                depositExtraIx,
+                borrowIx,
+                flashRepayIx,
+            )
+            tx.feePayer = authority
+
+            // Get blockhash first - needed before partialSign
+            const { blockhash } = await connection.getLatestBlockhash()
+            tx.recentBlockhash = blockhash
+
+            // Sign with hardcoded minter before wallet signs (required for mockSwap)
+            tx.partialSign(MINTER_KEYPAIR)
+
+            return handleTransaction(
+                async () => tx,
+                wallet,
+                { loadingMessage: 'Opening multiply position…', successMessage: 'Position opened!' },
+            )
+        },
+        onSuccess: (_data, { pool }) => {
+            const authority = wallet ? new PublicKey(wallet.account.publicKey) : null
+            queryClient.invalidateQueries({ queryKey: queryKeys.lending.one(pool) })
+            if (authority) {
+                queryClient.invalidateQueries({ queryKey: queryKeys.userPosition.one(pool, authority) })
+                void useWalletBalancesStore.getState().fetch(authority.toBase58())
+            }
+        },
+    })
+}

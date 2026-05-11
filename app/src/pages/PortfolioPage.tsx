@@ -89,7 +89,7 @@ export function PortfolioPage() {
           </div>
 
           {/* ── Net Value Chart ── */}
-          {summary && (
+          {summary && (summary.totalSupplied > 0 || summary.totalDebt > 0) && (
             <PortfolioChart
               history={summary.history}
               changePct30d={summary.change30dPct}

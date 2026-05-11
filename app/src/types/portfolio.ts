@@ -7,12 +7,16 @@ export interface LendPosition {
   earned: number;
   health: number;
   collateralEnabled: boolean;
+  /** Raw exact amount as string to avoid floating point precision issues when withdrawing max */
+  rawSupplied?: string;
 }
 
 export interface BorrowPosition {
   id: string;
+  poolId: string;
   collateralAsset: string;
   collateralIcon: string;
+  collateralAmount: number;
   borrowedAsset: string;
   borrowedIcon: string;
   debtAmount: number;
@@ -24,9 +28,11 @@ export interface BorrowPosition {
 
 export interface MultiplyPosition {
   id: string;
+  poolId: string;
   asset: string;
   icon: string;
   debtAsset: string;
+  debtIcon: string;
   multiplier: number;
   netAPY: number;
   positionSize: number;
