@@ -8,7 +8,7 @@ import type { PoolData } from "../types/lending";
  * Hardcoded blacklist of token mint addresses.
  * Add any tokens that should be hidden from the UI here.
  */
-export const TOKEN_BLACKLIST = new Set([
+export const TOKEN_BLACKLIST = new Set<string>([
   // Example: "TokenMintAddress111111111111111111111111111",
 ]);
 
@@ -16,7 +16,7 @@ export const TOKEN_BLACKLIST = new Set([
  * Hardcoded blacklist of pool addresses.
  * Add any pools that should be hidden from the UI here.
  */
-export const POOL_BLACKLIST = new Set([
+export const POOL_BLACKLIST = new Set<string>([
   // Example: "PoolAddress111111111111111111111111111111",
 ]);
 

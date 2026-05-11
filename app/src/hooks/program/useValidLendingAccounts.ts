@@ -54,5 +54,5 @@ export function useValidLendingAccounts() {
             })
     }, [poolsData])
 
-    return { data: validPools, isLoading: isLoading || isValidating, error };
+    return { data: validPools, isLoading: isLoading || isValidating, error: error };
 }

@@ -32,9 +32,8 @@ export function buildMultiplyMeta(pool: Pool): MultiplyMeta {
 
 /** Returns all on-chain pools as multiply strategies (one strategy per pool). */
 export function useMultiplyStrategies() {
-  const { data: poolsData = [], isLoading, error } = useValidLendingAccounts();
+  const { data: poolsData = [], isLoading } = useValidLendingAccounts();
   const [validPools, setValidPools] = useState<PoolData[]>([]);
-  const [isValidating, setIsValidating] = useState(false);
 
   useEffect(() => {
     if (poolsData.length === 0) {
@@ -42,7 +41,6 @@ export function useMultiplyStrategies() {
       return;
     }
 
-    setIsValidating(true);
     Promise.all(
       poolsData.map(async (pd) => {
         const isValid = await isMultiplyPoolValid(pd);
@@ -51,11 +49,9 @@ export function useMultiplyStrategies() {
     )
       .then((results) => {
         setValidPools(results.filter((r) => r.isValid).map((r) => r.pd));
-        setIsValidating(false);
       })
       .catch(() => {
         setValidPools([]);
-        setIsValidating(false);
       });
   }, [poolsData]);
 
