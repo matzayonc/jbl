@@ -1,8 +1,37 @@
+import { endpoint } from '@/config/solana'
 import type { WalletSession } from '@solana/client'
 import { Transaction } from '@solana/web3.js'
+import { createElement } from 'react'
 import { toast } from 'react-toastify'
 import { connection } from './program'
 import { signAndSendV1 } from './transactions'
+
+function getSolscanUrl(signature: string): string {
+    const e = endpoint.toLowerCase()
+    if (e.includes('mainnet')) return `https://solscan.io/tx/${signature}`
+    if (e.includes('devnet')) return `https://solscan.io/tx/${signature}?cluster=devnet`
+    if (e.includes('testnet')) return `https://solscan.io/tx/${signature}?cluster=testnet`
+    // localnet / custom — point to devnet explorer as best-effort fallback
+    return `https://solscan.io/tx/${signature}?cluster=devnet`
+}
+
+function SuccessToast(message: string, signature: string) {
+    return createElement(
+        'div',
+        { style: { display: 'flex', flexDirection: 'column', gap: '4px' } },
+        createElement('span', null, message),
+        createElement(
+            'a',
+            {
+                href: getSolscanUrl(signature),
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                style: { color: '#c698e5', fontSize: '11px', textDecoration: 'underline' },
+            },
+            'View on Solscan ↗',
+        ),
+    )
+}
 
 export interface TxOptions {
     /** Toast label shown while tx is in flight. */
@@ -52,7 +81,7 @@ export async function handleTransaction(
         )
 
         toast.update(toastId, {
-            render: successMessage,
+            render: SuccessToast(successMessage, signature),
             type: 'success',
             isLoading: false,
             autoClose: 4000,
