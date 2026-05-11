@@ -1,3 +1,5 @@
+import { getPoolMeta } from "@/config/poolRegistry";
+import { useKlines } from "@/hooks/useKlines";
 import { buildMultiplyMeta } from "@/hooks/useMultiply";
 import { cn } from "@/lib/utils";
 import type { Pool } from "@/types/pool";
@@ -100,6 +102,15 @@ export function MultiplyChart({ pool, seed }: MultiplyChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartApi = useRef<IChartApi | null>(null);
 
+  const poolMeta = useMemo(() => getPoolMeta(pool.address), [pool.address]);
+  const { data: liveKlines } = useKlines(poolMeta.binancePerp);
+
+  /** Resolved dataset: live data when available, mock otherwise. */
+  const allKlines = useMemo<CandlestickData<Time>[]>(() => {
+    if (liveKlines && liveKlines.length > 0) return liveKlines;
+    return generateOHLC(seed, 365);
+  }, [liveKlines, seed]);
+
   useEffect(() => {
     if (tab !== "price") return;
     const el = chartRef.current;
@@ -150,8 +161,8 @@ export function MultiplyChart({ pool, seed }: MultiplyChartProps) {
       wickDownColor: "rgba(212,86,119,0.5)",
     });
 
-    const allData = generateOHLC(seed, 365);
-    candleSeries.setData(allData.slice(allData.length - priceRange - 1));
+    const sliced = allKlines.slice(Math.max(0, allKlines.length - priceRange));
+    candleSeries.setData(sliced);
     chart.timeScale().fitContent();
 
     const handleResize = () => {
@@ -164,7 +175,7 @@ export function MultiplyChart({ pool, seed }: MultiplyChartProps) {
       chart.remove();
       chartApi.current = null;
     };
-  }, [tab, seed, priceRange]);
+  }, [tab, priceRange, allKlines]);
 
   const apyBars = useMemo(
     () => buildApyBars(pool.supplyAPY, meta.maxNetAPY, meta.maxMultiplier),
