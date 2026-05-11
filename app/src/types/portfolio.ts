@@ -2,6 +2,8 @@ export interface LendPosition {
   id: string;
   asset: string;
   icon: string;
+  collateralAsset: string;
+  collateralIcon: string;
   supplied: number;
   apy: number;
   earned: number;

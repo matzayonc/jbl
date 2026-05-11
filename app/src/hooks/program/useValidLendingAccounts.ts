@@ -1,24 +1,14 @@
-import { connection } from '@/lib/program'
-import { MINTER_PUBKEY } from '@/store/wallet.store'
+import { isTokenValid, POOL_BLACKLIST } from '@/lib/validation'
 import type { PoolData } from '@/types/lending'
-import { getMint } from '@solana/spl-token'
-import type { PublicKey } from '@solana/web3.js'
 import { useEffect, useState } from 'react'
 import { useLendingAccounts } from './useLendingAccounts'
 
-async function hasValidMinter(mint: PublicKey): Promise<boolean> {
-    try {
-        const info = await getMint(connection, mint)
-        return info.mintAuthority?.toBase58() === MINTER_PUBKEY.toBase58()
-    } catch {
-        return false
-    }
-}
-
 async function poolHasValidMinter(pool: PoolData): Promise<boolean> {
+    if (POOL_BLACKLIST.has(pool.publicKey.toBase58())) return false
+    if (pool.ltvPercent <= 75) return false
     const [collateralValid, lendValid] = await Promise.all([
-        hasValidMinter(pool.collateralMint),
-        hasValidMinter(pool.lendMint),
+        isTokenValid(pool.collateralMint),
+        isTokenValid(pool.lendMint),
     ])
     return collateralValid || lendValid
 }

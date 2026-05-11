@@ -25,6 +25,7 @@ export function BorrowTable() {
         <table className="w-full border-collapse">
           <thead>
             <tr className="border-b border-[#c698e5]/10">
+              <th className={TH}>Collateral</th>
               <th className={TH}>Borrowed</th>
               <th className={TH + " text-right"}>Debt</th>
               <th className={TH + " text-right"}>Borrow APY</th>
@@ -39,11 +40,22 @@ export function BorrowTable() {
               <tr
                 key={pos.id}
                 onClick={() => navigate(`/pool/${pos.poolId}`)}
-                className={`border-b border-[#c698e5]/6 hover:bg-[#c698e5]/[0.04] cursor-pointer transition-colors ${
-                  i === positions.length - 1 ? "border-none" : ""
-                }`}
+                className={`border-b border-[#c698e5]/6 hover:bg-[#c698e5]/[0.04] cursor-pointer transition-colors ${i === positions.length - 1 ? "border-none" : ""
+                  }`}
               >
                 <td className={TD + " w-full"}>
+                  <div className="flex items-center gap-2.5">
+                    <img
+                      src={pos.collateralIcon}
+                      alt={pos.collateralAsset}
+                      className="h-6 w-6 rounded-full"
+                    />
+                    <span className="font-semibold text-[#efe0f7]">
+                      {pos.collateralAsset}
+                    </span>
+                  </div>
+                </td>
+                <td className={TD}>
                   <div className="flex items-center gap-2.5">
                     <img
                       src={pos.borrowedIcon}

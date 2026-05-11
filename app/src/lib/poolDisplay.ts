@@ -42,13 +42,12 @@ export function derivePoolMetrics(pd: PoolData): {
     const totalBorrowedRaw = Number(pd.totalBorrowed)
     const totalCollateralRaw = Number(pd.totalCollateralDeposited)
 
-    // total_lend_deposited tracks the *available* balance — it decreases as
-    // tokens are borrowed out. True total supply = available + borrowed.
-    const totalLendSupply = totalLendRaw + totalBorrowedRaw
-
+    // total_lend_deposited tracks total deposits and does NOT decrease when
+    // tokens are borrowed out. Utilization mirrors the on-chain formula:
+    //   utilization = total_borrowed / total_lend_deposited
     const utilizationBps =
-        totalLendSupply > 0
-            ? Math.min(10_000, Math.round((totalBorrowedRaw / totalLendSupply) * 10_000))
+        totalLendRaw > 0
+            ? Math.min(10_000, Math.round((totalBorrowedRaw / totalLendRaw) * 10_000))
             : 0
 
     const utilizationPct = utilizationBps / 100
@@ -57,7 +56,7 @@ export function derivePoolMetrics(pd: PoolData): {
     const borrowAPY = borrowRateBps / 100
     const supplyAPY = borrowAPY * (utilizationPct / 100)
 
-    const availableLiquidityRaw = totalLendRaw // what remains available to borrow
+    const availableLiquidityRaw = totalLendRaw - totalBorrowedRaw
 
     return {
         utilizationBps,
@@ -65,7 +64,7 @@ export function derivePoolMetrics(pd: PoolData): {
         borrowAPY,
         supplyAPY,
         totalBorrowedRaw,
-        totalLendRaw: totalLendSupply,   // expose total supply (available + borrowed)
+        totalLendRaw,
         availableLiquidityRaw,
         totalCollateralRaw,
     }

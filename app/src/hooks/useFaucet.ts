@@ -16,6 +16,61 @@ import { MINTER_KEYPAIR, useWalletBalancesStore } from '../store/wallet.store'
 const FAUCET_AMOUNT = 1_000_000_000 // 1 000 tokens at 6 decimals
 
 /**
+ * Mutation hook for minting all provided test tokens in a single transaction.
+ */
+export function useFaucetAll(mints: PublicKey[]) {
+    const { wallet } = useWalletConnection()
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: async () => {
+            if (!wallet) throw new Error('Wallet not connected')
+            if (mints.length === 0) throw new Error('No mints provided')
+
+            const payer = new PublicKey(wallet.account.publicKey)
+
+            const result = await handleTransaction(
+                async () => {
+                    const tx = new Transaction()
+                    tx.feePayer = payer
+                    const { blockhash } = await connection.getLatestBlockhash()
+                    tx.recentBlockhash = blockhash
+
+                    for (const mint of mints) {
+                        const ata = getAssociatedTokenAddressSync(
+                            mint, payer, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
+                        )
+                        tx.add(
+                            createAssociatedTokenAccountIdempotentInstruction(
+                                payer, ata, payer, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
+                            ),
+                            createMintToInstruction(mint, ata, MINTER_KEYPAIR.publicKey, FAUCET_AMOUNT),
+                        )
+                    }
+
+                    tx.partialSign(MINTER_KEYPAIR)
+                    return tx
+                },
+                wallet,
+                {
+                    loadingMessage: 'Minting test tokens…',
+                    successMessage: `${mints.length} tokens minted to your wallet`,
+                    errorMessage: 'Faucet failed — mint authority mismatch',
+                },
+            )
+            return result
+        },
+        onSuccess: () => {
+            const address = wallet ? String(wallet.account.address) : null
+            if (address) {
+                queryClient.invalidateQueries({ queryKey: queryKeys.wallet.balances(address) })
+                void useWalletBalancesStore.getState().fetch(address)
+            }
+        },
+    })
+}
+
+/**
  * Mutation hook for minting test tokens to the connected wallet.
  * Uses a hardcoded minter keypair as the mint authority.
  *

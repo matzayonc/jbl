@@ -85,32 +85,11 @@ async function createPool(
         { loadingMessage: 'Creating token mints…', successMessage: 'Mints created' },
     )
 
-    // Step 2: pre-allocate the pool account (avoids 10 KB CPI limit)
+    // Step 2: pre-allocate pool account + initialize the pool in a single transaction
     const poolLamports = await connection.getMinimumBalanceForRentExemption(POOL_SPACE)
-
-    await handleTransaction(
-        async () => {
-            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
-            const tx = new Transaction({ blockhash, lastValidBlockHeight, feePayer: payer })
-            tx.add(
-                SystemProgram.createAccount({
-                    fromPubkey: payer,
-                    newAccountPubkey: poolKeypair.publicKey,
-                    space: POOL_SPACE,
-                    lamports: poolLamports,
-                    programId: readonlyProgram.programId,
-                }),
-            )
-            tx.partialSign(poolKeypair)
-            return tx
-        },
-        wallet,
-        { loadingMessage: 'Allocating pool account…', successMessage: 'Pool account allocated' },
-    )
-
-    // Step 3: initialize the pool via the `create` instruction
     const ltvPercent = params.ltvPercent ?? 75
-    const createTx = await readonlyProgram.methods
+
+    const createIx = await readonlyProgram.methods
         .create(
             new anchor.BN(feeConfig.m1),
             new anchor.BN(feeConfig.c1),
@@ -125,14 +104,27 @@ async function createPool(
             authority: payer,
             payer,
         })
-        .transaction()
-
-    createTx.feePayer = payer
+        .instruction()
 
     await handleTransaction(
-        async () => createTx,
+        async () => {
+            const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+            const tx = new Transaction({ blockhash, lastValidBlockHeight, feePayer: payer })
+            tx.add(
+                SystemProgram.createAccount({
+                    fromPubkey: payer,
+                    newAccountPubkey: poolKeypair.publicKey,
+                    space: POOL_SPACE,
+                    lamports: poolLamports,
+                    programId: readonlyProgram.programId,
+                }),
+                createIx,
+            )
+            tx.partialSign(poolKeypair)
+            return tx
+        },
         wallet,
-        { loadingMessage: 'Initializing pool…', successMessage: 'Pool created!' },
+        { loadingMessage: 'Creating pool…', successMessage: 'Pool created!' },
     )
 
     return {

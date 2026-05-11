@@ -62,6 +62,8 @@ export function useLendPositions(enabled = true) {
                 id: pool.publicKey.toBase58(),
                 asset: meta.symbol,
                 icon: meta.icon,
+                collateralAsset: meta.collateralSymbol,
+                collateralIcon: meta.collateralIcon,
                 supplied,
                 apy: metrics.supplyAPY,
                 earned: earnedEstimate,

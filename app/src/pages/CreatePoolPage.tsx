@@ -167,11 +167,11 @@ interface FormErrors {
 }
 
 const DEFAULT_FORM: FormState = {
-  m1: "0",
-  c1: "200",
-  m2: "0",
-  c2: "1000",
-  ltvPercent: "75",
+  m1: "450",
+  c1: "0",
+  m2: "8000",
+  c2: "-7173",
+  ltvPercent: "97",
 };
 
 function validate(form: FormState): FormErrors {
