@@ -103,16 +103,29 @@ export function MultiplyChart({ pool, seed }: MultiplyChartProps) {
   const chartApi = useRef<IChartApi | null>(null);
 
   const poolMeta = useMemo(() => getPoolMeta(pool.address), [pool.address]);
-  const { data: liveKlines } = useKlines(poolMeta.binancePerp);
+  const {
+    data: liveKlines,
+    isLoading: klinesLoading,
+    isError: klinesError,
+  } = useKlines(poolMeta.binancePerp);
 
-  /** Resolved dataset: live data when available, mock otherwise. */
-  const allKlines = useMemo<CandlestickData<Time>[]>(() => {
+  /**
+   * Resolved dataset:
+   * – live data when available
+   * – mock ONLY when there is no binancePerp symbol OR the request failed
+   *   (never while loading to avoid the mock→live flash)
+   */
+  const allKlines = useMemo<CandlestickData<Time>[] | null>(() => {
     if (liveKlines && liveKlines.length > 0) return liveKlines;
+    // Still in-flight and we expect real data → return null so the chart waits
+    if (poolMeta.binancePerp && klinesLoading) return null;
+    // No symbol configured or request failed → use mock
     return generateOHLC(seed, 365);
-  }, [liveKlines, seed]);
+  }, [liveKlines, klinesLoading, klinesError, poolMeta.binancePerp, seed]);
 
   useEffect(() => {
     if (tab !== "price") return;
+    if (allKlines === null) return; // still loading – don't mount a chart yet
     const el = chartRef.current;
     if (!el) return;
 
@@ -177,6 +190,9 @@ export function MultiplyChart({ pool, seed }: MultiplyChartProps) {
     };
   }, [tab, priceRange, allKlines]);
 
+  /** True while we are waiting for the first real response from Binance. */
+  const isChartLoading = tab === "price" && allKlines === null;
+
   const apyBars = useMemo(
     () => buildApyBars(pool.supplyAPY, meta.maxNetAPY, meta.maxMultiplier),
     [pool.supplyAPY, meta.maxNetAPY, meta.maxMultiplier],
@@ -223,7 +239,18 @@ export function MultiplyChart({ pool, seed }: MultiplyChartProps) {
       </div>
 
       {tab === "price" ? (
-        <div ref={chartRef} className="flex-1 min-h-[430px]" />
+        isChartLoading ? (
+          <div className="flex-1 min-h-[430px] flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="h-6 w-6 rounded-full border-2 border-[#c698e5]/40 border-t-[#c698e5] animate-spin" />
+              <span className="text-[11px] text-[#efe0f7]/30">
+                Loading chart…
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div ref={chartRef} className="flex-1 min-h-[430px]" />
+        )
       ) : (
         <div className="flex-1 flex flex-col px-2 pt-3 pb-3 min-h-[430px]">
           <ResponsiveContainer width="100%" className="flex-1 min-h-0">
