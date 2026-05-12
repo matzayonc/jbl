@@ -34,7 +34,7 @@ export function Footer() {
       <div className="max-w-6xl mx-auto flex flex-col items-center gap-5 sm:flex-row sm:justify-between">
         <div className="flex flex-col items-center gap-1 sm:items-start">
           <span className="text-sm font-semibold text-[#c698e5]">
-            JBL Protocol
+            Calma
           </span>
           <span className="text-xs text-[#efe0f7]/30">
             Decentralised lending on Solana
