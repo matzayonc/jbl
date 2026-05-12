@@ -1,13 +1,14 @@
 import { useBorrow } from "@/hooks/program/useBorrow";
 import { useUserPosition } from "@/hooks/program/useUserPosition";
 import { useMintDecimals } from "@/hooks/useMintDecimals";
+import { computeFeeBps } from "@/lib/poolDisplay";
 import { cn } from "@/lib/utils";
 import type { PoolData } from "@/types/lending";
 import type { Pool } from "@/types/pool";
 import { BN } from "@anchor-lang/core";
 import { useWalletConnection } from "@solana/react-hooks";
 import { PublicKey } from "@solana/web3.js";
-import { Info, Loader2, Wallet, X } from "lucide-react";
+import { Info, Loader2, Lock, Wallet, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 interface BorrowModalProps {
@@ -18,6 +19,8 @@ interface BorrowModalProps {
 
 export function BorrowModal({ pool, poolData, onClose }: BorrowModalProps) {
   const [amount, setAmount] = useState("");
+  const [fixedRate, setFixedRate] = useState(false);
+  const [fixedDuration, setFixedDuration] = useState<"1w" | "1m">("1w");
   const { wallet } = useWalletConnection();
 
   const { data: lendDecimals } = useMintDecimals(poolData.lendMint);
@@ -59,6 +62,23 @@ export function BorrowModal({ pool, poolData, onClose }: BorrowModalProps) {
     0,
     Math.min(pool.availableLiquidity, userBorrowPower - currentDebtUi),
   );
+
+  // Project borrow APY after this borrow based on post-borrow utilization.
+  const DURATION_PREMIUM: Record<"1w" | "1m", number> = { "1w": 1.5, "1m": 1.5 * 1.08 };
+
+  const projectedBorrowAPY = useMemo(() => {
+    const decimals = lendDecimals ?? 6;
+    const numAmount = parseFloat(amount);
+    const borrowRaw = numAmount > 0 ? numAmount * 10 ** decimals : 0;
+    const newTotalBorrowed = Number(poolData.totalBorrowed) + borrowRaw;
+    const totalLend = Number(poolData.totalLendDeposited);
+    const newUtilBps =
+      totalLend > 0 ? Math.round((newTotalBorrowed / totalLend) * 10_000) : 0;
+    const feeBps = computeFeeBps(poolData.feeConfig, newUtilBps);
+    return feeBps / 100;
+  }, [amount, lendDecimals, poolData]);
+
+  const projectedFixedAPY = projectedBorrowAPY * DURATION_PREMIUM[fixedDuration];
 
   function handleBackdrop(e: React.MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onClose();
@@ -161,6 +181,59 @@ export function BorrowModal({ pool, poolData, onClose }: BorrowModalProps) {
             ))}
           </div>
 
+          {/* Fixed rate toggle */}
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center justify-between rounded-xl border border-[#c698e5]/10 px-3.5 py-3 cursor-pointer hover:border-[#c698e5]/25 transition-colors">
+              <div className="flex items-center gap-2.5">
+                <Lock className="h-3.5 w-3.5 text-[#c698e5]/60" />
+                <div>
+                  <p className="text-xs font-medium text-[#efe0f7]/80">Fixed rate</p>
+                  <p className="text-[11px] text-[#efe0f7]/35">
+                    Lock in rate at {projectedFixedAPY.toFixed(2)}% APY
+                  </p>
+                </div>
+              </div>
+              <div
+                className={cn(
+                  "relative h-5 w-9 rounded-full transition-colors duration-200",
+                  fixedRate ? "bg-[#c698e5]" : "bg-[#c698e5]/15",
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
+                    fixedRate ? "translate-x-4" : "translate-x-0.5",
+                  )}
+                />
+                <input
+                  type="checkbox"
+                  checked={fixedRate}
+                  onChange={(e) => setFixedRate(e.target.checked)}
+                  className="sr-only"
+                />
+              </div>
+            </label>
+
+            {fixedRate && (
+              <div className="flex gap-1.5">
+                {(["1w", "1m"] as const).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setFixedDuration(d)}
+                    className={cn(
+                      "flex-1 rounded-lg border py-1.5 text-[11px] font-medium transition-all cursor-pointer",
+                      fixedDuration === d
+                        ? "border-[#c698e5]/50 bg-[#c698e5]/10 text-[#c698e5]"
+                        : "border-[#c698e5]/15 text-[#efe0f7]/35 hover:border-[#c698e5]/35 hover:text-[#c698e5]",
+                    )}
+                  >
+                    {d === "1w" ? "1 Week" : "1 Month"}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Info rows */}
           <div className="rounded-xl border border-[#c698e5]/10 divide-y divide-[#c698e5]/8">
             <div className="flex items-center justify-between px-3.5 py-2.5">
@@ -169,7 +242,14 @@ export function BorrowModal({ pool, poolData, onClose }: BorrowModalProps) {
                 Borrow APY
               </span>
               <span className="text-xs font-semibold text-emerald-400">
-                {pool.borrowAPY.toFixed(2)}%
+                {fixedRate
+                  ? projectedFixedAPY.toFixed(2)
+                  : projectedBorrowAPY.toFixed(2)}
+                %{fixedRate && (
+                  <span className="ml-1 text-[10px] font-medium text-[#c698e5]/70">
+                    fixed · {fixedDuration === "1w" ? "1w" : "1m"}
+                  </span>
+                )}
               </span>
             </div>
             <div className="flex items-center justify-between px-3.5 py-2.5">
