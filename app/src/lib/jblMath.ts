@@ -3,7 +3,7 @@ import {
     amount_to_shares_burned,
     compute_interest,
     shares_to_amount,
-} from '../../pkg/jbl-math'
+} from '@jbl/wasm-lib'
 
 /**
  * Convert debt shares to the current outstanding token amount.
