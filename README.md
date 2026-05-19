@@ -65,19 +65,12 @@ The generated package is written to `app/pkg/jbl-math/` and is gitignored — re
 #### Import in TypeScript
 
 ```ts
-import init, {
-  compute_interest,
-  amount_to_shares,
-  shares_to_amount,
-  amount_to_shares_burned,
-} from './pkg/jbl-math'
+import { sharesToAmount, computeInterest, amountToShares, amountToSharesBurned } from './lib/jblMath'
 
-// Call init() once before using any function (loads the .wasm binary).
-await init()
-
+// The bundler target auto-initializes the .wasm binary on import — no init() call needed.
 // All u64 arguments and return values use JavaScript BigInt.
 // Option<u64> return types map to bigint | undefined (undefined on overflow).
-const interest = compute_interest(1_000_000n, 500, 31_557_600n)
+const interest = computeInterest(1_000_000n, 500, 31_557_600n)
 ```
 
 #### Vite integration
@@ -91,6 +84,7 @@ const interest = compute_interest(1_000_000n, 500, 31_557_600n)
 ```sh
 cd app
 npm install
+npm run wasm:build   # compile crates/jbl-math-wasm → app/pkg/jbl-math (required before dev/build)
 npm run dev
 ```
 
