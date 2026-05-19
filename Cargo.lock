@@ -1625,6 +1625,14 @@ name = "jbl-math"
 version = "0.1.0"
 
 [[package]]
+name = "jbl-math-wasm"
+version = "0.1.0"
+dependencies = [
+ "jbl-math",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.97"
 source = "registry+https://github.com/rust-lang/crates.io-index"
