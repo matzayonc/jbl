@@ -1608,6 +1608,7 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "bytemuck",
+ "jbl-math",
  "litesvm",
  "sha2 0.10.9",
  "solana-instructions-sysvar 3.0.0",
@@ -1618,6 +1619,10 @@ dependencies = [
  "solana-transaction",
  "spl-token",
 ]
+
+[[package]]
+name = "jbl-math"
+version = "0.1.0"
 
 [[package]]
 name = "js-sys"
